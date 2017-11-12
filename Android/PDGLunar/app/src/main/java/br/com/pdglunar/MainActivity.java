@@ -1,5 +1,6 @@
 package br.com.pdglunar;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -39,7 +40,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     final int TIME_TO_SAVE_DATA = 30;
 
     Button btnActivate;
-    Button btnPotHole;
+    Button btnPothole;
     Button btnSpeedBump;
 
     SensorManager sensorAccelerometerManager;
@@ -51,35 +52,37 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     TextView tvAccelerometerY;
     TextView tvAccelerometerZ;
 
-    EditText eT_filename;
+    EditText et_filename;
 
     List<TextView> listTv;
 
-    // Caminho a serem salvos os dados
+    // Path to save data
     String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/TCC-Lunar/";
 
     String filename = "";
 
-    File file, fileBuraco, fileQuebraMola;
+    File generalFile, potholeFile, speedBumpFile;
 
     long curTime;
     long lastUpdate = 0;
 
-    boolean isBtnAtivarEnabled;
+    boolean isEnableActivateButton;
     boolean isFirstWrite;
     boolean isFirstHoleWrite;
     boolean isFirstSpeedBumpWrite;
-    boolean isFirstClickHoleButton      = true;
+    boolean isFirstClickPotholeButton   = true;
     boolean isFirstClickSpeedBumpButton = true;
 
 
     Chronometer timer;
 
-    boolean gps_permission;
+    boolean gps_permission, storage_permission;
     boolean isBroadcastRegistred = false;
-    private static final int REQUEST_PERMISSIONS = 100;
 
-    SharedPreferences mPref;
+    private static final int REQUEST_GPS_PERMISSIONS     = 100;
+    private static final int REQUEST_STORAGE_PERMISSIONS = 101;
+
+    SharedPreferences        mPref;
     SharedPreferences.Editor medit;
 
 
@@ -88,20 +91,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //region Declaração Variáveis do Layout
+        //region Layout Variables Declaration
         tvAccelerometerX = (TextView) findViewById(R.id.tv_accelerometer_X);
         tvAccelerometerY = (TextView) findViewById(R.id.tv_accelerometer_Y);
         tvAccelerometerZ = (TextView) findViewById(R.id.tv_accelerometer_Z);
 
-        eT_filename      = (EditText) findViewById(R.id.et_filename);
+        et_filename      = (EditText) findViewById(R.id.et_filename);
         btnActivate      = (Button)   findViewById(R.id.btn_activate);
-        btnPotHole       = (Button)   findViewById(R.id.btn_pothole);
+        btnPothole       = (Button)   findViewById(R.id.btn_pothole);
         btnSpeedBump     = (Button)   findViewById(R.id.btn_speedbump);
 
         timer            = (Chronometer) findViewById(R.id.chronometer);
         //endregion
 
-        // Formatando o cronômetro
+        // Chronometer formatting
         timer.setTextColor(Color.RED);
         timer.setFormat(">> %s <<");
 
@@ -109,48 +112,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         mPref            = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         medit            = mPref.edit();
 
-        isBtnAtivarEnabled          = false;
+        isEnableActivateButton      = false;
         sensorAccelerometerManager  = (SensorManager) getSystemService(SENSOR_SERVICE);
 
         listTv = new ArrayList<>();
 
-        // Checa se SDCard está disponível para escrita
+        // Checks if the SDCard is available for writing
         if (FileUtils.isExternalStorageWritable()) {
             path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS) + "/TCC-Lunar/";
         }
 
-        // Checa se o diretório existe
-        file = new File(path);
-        if (!file.isDirectory())
-            file.mkdir();
+        // Checks if directory exist
+        generalFile = new File(path);
+        if (!generalFile.isDirectory())
+            // Create Directory
+            generalFile.mkdir();
 
 
-        // Solicita a permissão do Aplicativo ao usuário
+        // Request permission
         getPermission();
 
-        //region Listener do botão Buraco
-        btnPotHole.setOnClickListener(new View.OnClickListener() {
+        //region Pothole button Listener
+        btnPothole.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
 
-                // Verifica se o processo de captura não está ativo
-                if (!isBtnAtivarEnabled)
+                // Checks if the capture process is inactive
+                if (!isEnableActivateButton)
                 {
                     Toast.makeText(MainActivity.this,"Precisa iniciar a captura antes!",Toast.LENGTH_SHORT).show();
                     return;
                 }
 
-                // Formata o dado
+                // Formatting data
                 String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),0);
 
-                // Salva o dado
-                FileUtils.SaveData(fileBuraco,data);
+                // Saving data
+                FileUtils.SaveData(potholeFile,data);
 
-                // Verifica se é o primeiro click
-                // Isto é checado para inserir ou não o header no arquivo de saída
-                if (isFirstClickHoleButton)
-                    isFirstClickHoleButton = false;
+                // Check if it is the first click
+                // This is checked to insert or not the header in the output file
+                if (isFirstClickPotholeButton)
+                    isFirstClickPotholeButton = false;
 
                 // Info Message
                 Toast.makeText(MainActivity.this,"Buraco adicionado",Toast.LENGTH_SHORT).show();
@@ -158,27 +162,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         });
         //endregion
 
-        //region Listener do botão Quebra-Mola
+        //region SpeedBump Button Listener
         btnSpeedBump.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
 
-                // Verifica se o processo de captura não está ativo
-                if (!isBtnAtivarEnabled)
+                // Checks if the capture process is inactive
+                if (!isEnableActivateButton)
                 {
                     Toast.makeText(MainActivity.this,"Precisa iniciar a captura antes!",Toast.LENGTH_SHORT).show();
                     return;
                 }
 
-                // Formata o dado
+                // Formatting data
                 String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),1);
 
-                // Salva o dado
-                FileUtils.SaveData(fileQuebraMola, data);
+                // Saving data
+                FileUtils.SaveData(speedBumpFile, data);
 
-                // Verifica se é o primeiro click
-                // Isto é checado para inserir ou não o header no arquivo de saída
+                // Check if it is the first click
+                // This is checked to insert or not the header in the output file
                 if (isFirstClickSpeedBumpButton)
                     isFirstClickSpeedBumpButton = false;
 
@@ -188,23 +192,36 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         });
         //endregion
 
-        //region Listener do botão Ativar
+        //region Activate Button Listener
         btnActivate.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
 
-                // Registra o serviço caso não esteja
+                // Checks if the application has the required permissions
+                if (!gps_permission || !storage_permission)
+                {
+                    Toast.makeText(MainActivity.this,"The LUNAR application can not run without having the permissions granted", Toast.LENGTH_LONG).show();
+                    try
+                    {
+                        Thread.sleep(3000);
+                    }catch(InterruptedException e) { }
+
+                    MainActivity.this.finish();
+                    //System.exit(0);
+                }
+
+                // Register the background service
                 if (!isBroadcastRegistred)
                 {
                     registerReceiver(broadcastReceiver, new IntentFilter(GPSService.str_receiver));
                     isBroadcastRegistred = true;
                 }
 
-                // Verifica se o processo de captura não está ativo
-                if (!isBtnAtivarEnabled) {
+                // Checks if the capture process is inactive
+                if (!isEnableActivateButton) {
 
-                    // Checa se o GPS possui permissão para utilizar
+                    // Checks if GPS is allowed to use
                     if (gps_permission) {
 
                         if (mPref.getString("service", "").matches(""))
@@ -216,59 +233,59 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                         }
                         else
-                            Toast.makeText(getApplicationContext(), "Service já está rodando", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getApplicationContext(), "Service is running...", Toast.LENGTH_SHORT).show();
                     }
 
                     else
                     {
-                        Toast.makeText(getApplicationContext(), "Por favor, ative o GPS!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Please, active the GPS!", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
-                    // Captura e formata o nome do arquvivo de saída
-                    if (eT_filename.getText().toString().trim().equals(""))
+                    // Capture and format the output file name
+                    if (et_filename.getText().toString().trim().equals(""))
                         filename = "Lunar" + "_" + FileUtils.getDateTimeSystem();
                     else
-                        filename = eT_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem();
+                        filename = et_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem();
 
-                    // Cria o arquivo de saída
-                    file = new File(path + filename + ".txt");
+                    // Create output file
+                    generalFile = new File(path + filename + ".txt");
 
-                    // Seta variáveis booleanas
+                    // Setting Boolean Variables
                     isFirstWrite                  = true;
                     isFirstHoleWrite              = true;
                     isFirstSpeedBumpWrite         = true;
-                    isFirstClickHoleButton        = true;
+                    isFirstClickPotholeButton     = true;
                     isFirstClickSpeedBumpButton   = true;
 
-                    // Reinicia o cronômetro
+                    // Reset chronometer
                     timer.setBase(SystemClock.elapsedRealtime());
                     timer.start();
 
-                    // Formatar o botão Ativar
+                    // Formats the Activate button
                     btnActivate.setText("PARAR");
                     btnActivate.setBackgroundColor(ResourcesCompat.getColor(getResources(), R.color.white, null));
                     btnActivate.setTextColor((ResourcesCompat.getColor(getResources(), R.color.black, null)));
 
-                    // Cria os arquivos de saída para Buraco e Quebra-Mola
-                    fileBuraco      = new File(path + "Buraco"     + "_" + eT_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem() + ".txt");
-                    fileQuebraMola  = new File(path + "QuebraMola" + "_" + eT_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem() + ".txt");
+                    // Create SpeedBump and Pothole output files
+                    potholeFile   = new File(path + "Pothole"     + "_" + et_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem() + ".txt");
+                    speedBumpFile = new File(path + "SpeedBump"   + "_" + et_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem() + ".txt");
 
-                    // Ativa o Sensor Acelerômetro
+                    // Activates the Accelerometer Sensor
                     activateSensorAcecelerometer();
                 }
 
-                // Caso o usuário interrompa a captura dos dados
+                // If the user interrupts the data capture
                 else
                 {
                     btnActivate.setText(getString(R.string.btn_activate));
                     btnActivate.setBackgroundColor(ResourcesCompat.getColor(getResources(), R.color.black, null));
                     btnActivate.setTextColor((ResourcesCompat.getColor(getResources(), R.color.white, null)));
 
-                    // Remove o registro do sensor Acelerômetro
+                    // Remove the Accelerometer Sensor Register
                     sensorAccelerometerManager.unregisterListener(MainActivity.this);
 
-                    // Remove o registro do BroadCast
+                    // Remove the broadcast register
                     if (isBroadcastRegistred)
                     {
                         unregisterReceiver(broadcastReceiver);
@@ -280,18 +297,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         medit.commit();
                     }
 
-                    // Seta variáveis booleanas
+                    // Setting Boolean Variables
                     isFirstWrite                  = true;
                     isFirstHoleWrite              = true;
                     isFirstSpeedBumpWrite         = true;
 
-                    // Interrompe o cronômetro
+                    // Stop the chronometer
                     timer.stop();
                     timer.setBase(SystemClock.elapsedRealtime());
                 }
 
-                // Altera o status do botão Ativar
-                isBtnAtivarEnabled = !isBtnAtivarEnabled;
+                // Changes the status of the Activate button
+                isEnableActivateButton = !isEnableActivateButton;
             }
         });
         //endregion
@@ -300,38 +317,67 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private void getPermission() {
 
-        // Checa se a permissão do aplicativo foi atendida
+        // Check if location permission was granted
         if ((ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED))
         {
-
+            // Check if the user has already given DENY permission previously
             if  ((ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, android.Manifest.permission.ACCESS_FINE_LOCATION)))
-            { }
+            {
+                // TODO Explain why this permission is important
+            }
             else
             {
-                // Solicita a permissão
-                ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_PERMISSIONS);
+                // Request permission
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_GPS_PERMISSIONS);
             }
-
         }
         else
         {
             gps_permission = true;
         }
+
+        // Check if storage permission was granted
+        if ((ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED))
+        {
+
+            // Check if the user has already given DENY permission previously
+            if  ((ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)))
+            {
+                // TODO Explain why this permission is important
+            }
+            else
+            {
+                // Request permission
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_STORAGE_PERMISSIONS);
+            }
+
+        }
+        else
+        {
+            storage_permission = true;
+        }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        switch (requestCode) {
-            case REQUEST_PERMISSIONS: {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        switch (requestCode)
+        {
+            case REQUEST_GPS_PERMISSIONS:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
                     gps_permission = true;
-                }
-                else {
-                    Toast.makeText(getApplicationContext(), "Por favor, aceite a permissão!", Toast.LENGTH_LONG).show();
-                }
-            }
+                else
+                    Toast.makeText(getApplicationContext(), getString(R.string.text_accept_permission), Toast.LENGTH_LONG).show();
+                break;
+
+            case REQUEST_STORAGE_PERMISSIONS:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                    storage_permission = true;
+                else
+                    Toast.makeText(getApplicationContext(), getString(R.string.text_accept_permission), Toast.LENGTH_LONG).show();
+                break;
         }
     }
 
@@ -390,9 +436,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         curTime = System.currentTimeMillis();
 
-        // Checa se já passou o tempo necessário para salvar os dados
+        // Check if you have already spent the time needed to save the data
         if ((curTime - lastUpdate) > TIME_TO_SAVE_DATA) {
-            FileUtils.SaveData(file, formatLineToSaveTxtFile(listTv,(SystemClock.elapsedRealtime() - timer.getBase())));
+            FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv,(SystemClock.elapsedRealtime() - timer.getBase())));
             lastUpdate = curTime;
         }
     }
@@ -401,14 +447,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         String data;
         StringBuilder line = new StringBuilder();
 
-        // Primeira escrita no arquivo?
-        // Adiciona o Header
+        // First written to file?
+        // Add Header
         if (isFirstWrite) {
             line.append("accelerometer_X;accelerometer_Y;accelerometer_Z;latitude;longitude;timestamp\n");
             isFirstWrite = false;
         }
 
-        // Iteração em todos os textViews
+        // Iterate over all TextViews
         for (TextView tV : listTv) {
             data = tV.getText().toString().substring(2).trim();
 
