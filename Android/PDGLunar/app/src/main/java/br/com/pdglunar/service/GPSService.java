@@ -22,6 +22,7 @@ public class GPSService extends Service implements LocationListener {
 
     boolean isGPSEnable     = false;
     boolean isNetworkEnable = false;
+
     double  latitude, longitude;
 
     // Variáveis relacionadas ao intervalos de notificação e atualização da localização
@@ -37,6 +38,7 @@ public class GPSService extends Service implements LocationListener {
     Intent intent;
 
     public static String str_receiver = "service.receiver";
+    public static boolean stopService = false;
 
     public GPSService() { }
 
@@ -72,6 +74,15 @@ public class GPSService extends Service implements LocationListener {
         isGPSEnable     = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
         isNetworkEnable = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
 
+        // Sanity Check
+        if (stopService)
+        {
+            if (locationManager != null)
+                locationManager.removeUpdates(GPSService.this);
+
+            return;
+        }
+
         // Trace Message
         Log.i("PDG_LUNAR","GPSService.getLocation()");
 
@@ -83,7 +94,7 @@ public class GPSService extends Service implements LocationListener {
         }
         else {
 
-            // Internet móvel está habilitada?
+            // Is it network available?
             if (isNetworkEnable)
             {
                 location = null;
