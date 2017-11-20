@@ -20,6 +20,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Chronometer;
@@ -268,8 +269,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     btnActivate.setTextColor((ResourcesCompat.getColor(getResources(), R.color.black, null)));
 
                     // Create SpeedBump and Pothole output files
-                    potholeFile   = new File(path + "Pothole"     + "_" + et_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem() + ".txt");
-                    speedBumpFile = new File(path + "SpeedBump"   + "_" + et_filename.getText().toString().trim() + "_" + FileUtils.getDateTimeSystem() + ".txt");
+                    potholeFile   = new File(path + "Pothole"     + "_" + filename + ".txt");
+                    speedBumpFile = new File(path + "SpeedBump"   + "_" + filename + ".txt");
 
                     // Activates the Accelerometer Sensor
                     activateSensorAcecelerometer();
@@ -397,6 +398,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onPause() {
         super.onPause();
+
         sensorAccelerometerManager.unregisterListener(this);
 
         if (medit != null) {
@@ -406,9 +408,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         if (isBroadcastRegistred)
         {
+            stopService(new Intent(this, GPSService.class));
             unregisterReceiver(broadcastReceiver);
             isBroadcastRegistred = false;
         }
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        super.onDestroy();
+
+        GPSService.stopService = true;
     }
 
     @Override
@@ -434,23 +445,56 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         listTv.add(tvAccelerometerY);
         listTv.add(tvAccelerometerZ);
 
+        // Get Tilt
+        int tilt = getTilt(event.values);
+
+        //Display display = ((WindowManager) getSystemService(WINDOW_SERVICE)).getDefaultDisplay();
+        //int rotation = display.getRotation();
+        //https://developer.android.com/reference/android/view/Display.html#getRotation()
+
+        // Get current Time
         curTime = System.currentTimeMillis();
 
         // Check if you have already spent the time needed to save the data
-        if ((curTime - lastUpdate) > TIME_TO_SAVE_DATA) {
-            FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv,(SystemClock.elapsedRealtime() - timer.getBase())));
+        if ((curTime - lastUpdate) > TIME_TO_SAVE_DATA)
+        {
+            FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
             lastUpdate = curTime;
         }
     }
 
-    public String formatLineToSaveTxtFile(List<TextView> listTv, long time) {
+    private int getTilt(float[] values)
+    {
+        double norm_values = Math.sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2]);
+
+        // Normalize the accelerometer vector
+        values[2] = (float) (values[2]/norm_values);
+
+        int tilt  = (int) Math.round(Math.toDegrees(Math.acos(values[2])));
+
+        return tilt;
+        /*
+        if (inclination < 25 || inclination > 155)
+        {
+            // device is flat
+            Log.i("PDG_LUNAR", "[FLAT] Inclination: " + inclination);
+        }
+        else
+        {
+            // device is not flat
+            Log.i("PDG_LUNAR", "[NOT FLAT] Inclination: " + inclination);
+        }
+        */
+    }
+
+    public String formatLineToSaveTxtFile(List<TextView> listTv, int tilt, long time) {
         String data;
         StringBuilder line = new StringBuilder();
 
         // First written to file?
         // Add Header
         if (isFirstWrite) {
-            line.append("accelerometer_X;accelerometer_Y;accelerometer_Z;latitude;longitude;timestamp\n");
+            line.append("accelerometer_X;accelerometer_Y;accelerometer_Z;latitude;longitude;tilt;timestamp\n");
             isFirstWrite = false;
         }
 
@@ -458,7 +502,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         for (TextView tV : listTv) {
             data = tV.getText().toString().substring(2).trim();
 
-            // Formata o numero caso esteja em notação científica
+            // Check if the number is in scientific formatting. If so, it will have to be converted
             if (data.contains("E") == true)
                 data = new BigDecimal(data).toString();
 
@@ -470,13 +514,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         line.append(";");
         line.append(String.valueOf(longitude));
         line.append(";");
+        line.append(String.valueOf(tilt));
+        line.append(";");
         line.append(time);
 
         return line.toString();
     }
 
     public String formatSpeedBumpHoleLineToSaveTxtFile(long timer, int id) {
-        //id -> 0 buraco ,  id -> 1 quebra-mola
+
+        //id -> 0 Pothole
+        //id -> 1 SpeedBump
         StringBuilder line = new StringBuilder();
 
         if (id == 0 && isFirstHoleWrite)
