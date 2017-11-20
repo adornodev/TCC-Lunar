@@ -39,7 +39,7 @@ public class FileUtils
     public static void SaveData(File file, String data)
     {
         //Se falhou em pegar algum dado de um sensor, temos que impedir que seja salvo
-        if (data.contains(";;") == true || data.contains("0.0"))
+        if (data.contains(";;") == true) //|| data.contains("0.0"))
             return;
 
         FileOutputStream fos = null;
