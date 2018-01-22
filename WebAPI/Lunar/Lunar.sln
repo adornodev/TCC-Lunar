@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27004.2009
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunar.SharedLibrary", "Lunar.SharedLibrary\Lunar.SharedLibrary.csproj", "{556F1A6A-24F6-4F75-B60B-449208E34DEC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunar.Api", "Lunar.Api\Lunar.Api.csproj", "{283081D2-06D6-4FB4-9534-D83A238824C1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{556F1A6A-24F6-4F75-B60B-449208E34DEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{556F1A6A-24F6-4F75-B60B-449208E34DEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{556F1A6A-24F6-4F75-B60B-449208E34DEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{556F1A6A-24F6-4F75-B60B-449208E34DEC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{283081D2-06D6-4FB4-9534-D83A238824C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{283081D2-06D6-4FB4-9534-D83A238824C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{283081D2-06D6-4FB4-9534-D83A238824C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{283081D2-06D6-4FB4-9534-D83A238824C1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {85158E11-2E90-461A-98DC-3F1515154665}
+	EndGlobalSection
+EndGlobal
