@@ -1,5 +1,7 @@
 ﻿using Lunar.SharedLibrary.Models;
-using Lunar.SharedLibrary.Utils;
+using MongoDB.Driver;
+using MongoDB.Driver.Builders;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,41 +14,58 @@ namespace Lunar.Api.Controllers
     [RoutePrefix("api/v1/public")]
     public class AddressController : ApiController
     {
+        private static MongoCollection Collection { get; set; }
 
-        private MongoDbUtils<MobileRecordObject> _MongoMROObj;
-  
         [HttpGet]
         [Route("mobilerecods/{output}")]
         public HttpResponseMessage GetMobileRecordsById(int output)
         {
             // Inicializa as componentes do banco
-            InitializeMongoDb();
-
-            try
-            {
-                List<MobileRecordObject> list =  _MongoMROObj.GetRecords(_MongoMROObj, "Output", output.ToString());
-
-                MobileRecordObject record = new MobileRecordObject();
-                _MongoMROObj.collection.InsertOne(record);
-    
-            }
-            catch (Exception ex)
+            if (!InitMongoDb())
             {
                 return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed connection with Database");
             }
 
-            // SE DEU CERTO, RESGATA CERTOS VALORES
-            return Request.CreateResponse(HttpStatusCode.OK, "VALORES AQUI");
+            List<string> results = new List<string>();
+            try
+            {
+                MongoCursor<MobileRecordObject> cursor = Collection.FindAs<MobileRecordObject>(Query.EQ("Output", output));
+
+                // Iterate over all records on collection
+                foreach (MobileRecordObject rec in cursor)
+                {
+                    results.Add(JsonConvert.SerializeObject(rec));
+                }
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Fail to get records from Database");
+            }
+
+            return Request.CreateResponse(HttpStatusCode.OK, results);
         }
 
-        
 
-        private void InitializeMongoDb()
+        private static bool InitMongoDb()
         {
-            _MongoMROObj = new MongoDbUtils<MobileRecordObject>("lunar", "lunar", "localhost:27017", "LunarDb");
+            try
+            {
+                // Initialize database connection
+                MongoDbContext.Configure("lunar", "lunar", "localhost:27017", true, false, 600000, 600000);
 
-            // Open the Connection
-            _MongoMROObj.GetCollection("TestRecord");
+                // Get database
+                MongoDatabase mongoDatabase = MongoDbContext.GetDatabase("LunarDb");
+
+                // Get collection
+                Collection = mongoDatabase.GetCollection<MobileRecordObject>("TestRecord");
+
+                // Sanity Check
+                if (Collection == null)
+                    return false;
+            }
+            catch (Exception ex) { return false; }
+
+            return true;
         }
     }
 }

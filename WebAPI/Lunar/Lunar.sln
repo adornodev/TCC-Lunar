@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunar.SharedLibrary", "Luna
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunar.Api", "Lunar.Api\Lunar.Api.csproj", "{283081D2-06D6-4FB4-9534-D83A238824C1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunar.Worker", "Lunar.Worker\Lunar.Worker.csproj", "{FB69C971-641B-4AFA-95DF-572E30D76BAD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lunar.Recorder", "Lunar.Recorder\Lunar.Recorder.csproj", "{97F259F2-4571-4D86-B179-4B334DDF762F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{283081D2-06D6-4FB4-9534-D83A238824C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{283081D2-06D6-4FB4-9534-D83A238824C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{283081D2-06D6-4FB4-9534-D83A238824C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB69C971-641B-4AFA-95DF-572E30D76BAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB69C971-641B-4AFA-95DF-572E30D76BAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB69C971-641B-4AFA-95DF-572E30D76BAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB69C971-641B-4AFA-95DF-572E30D76BAD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97F259F2-4571-4D86-B179-4B334DDF762F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97F259F2-4571-4D86-B179-4B334DDF762F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97F259F2-4571-4D86-B179-4B334DDF762F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97F259F2-4571-4D86-B179-4B334DDF762F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
