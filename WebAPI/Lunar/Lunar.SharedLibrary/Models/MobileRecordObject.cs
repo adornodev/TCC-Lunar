@@ -1,9 +1,12 @@
 ﻿using Lunar.SharedLibrary.Utils;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using Newtonsoft.Json;
 using System;
 
 namespace Lunar.SharedLibrary.Models
 {
+    [BsonIgnoreExtraElements]
     public class MobileRecordObject
     {
         public ObjectId     _id             { get; set; }
@@ -32,7 +35,11 @@ namespace Lunar.SharedLibrary.Models
             this.Tilt            = int.MinValue;
             this.Output          = -1;
             this.OutputId        = Enums.Output.NotClassified;
+        }
 
+        public string AsJSONString()
+        {
+            return JsonConvert.SerializeObject(this);
         }
     }
 }
