@@ -12,7 +12,6 @@ namespace Lunar.Recorder
 {
     public class Recorder
     {
-        public  static FlexibleOptions                  ProgramOptions;
         private static SQSUtils                         ProcessedQueue;
         private static GetQueueUrlResponse              Response;
         private static MongoCollection                  Collection       { get; set; }
@@ -29,9 +28,9 @@ namespace Lunar.Recorder
         {
             // Load config
             Console.WriteLine("Loading config file");
-            if (!ParseArguments(ProgramOptions))
+            if (!InitAppConfigValues())
             {
-                Console.WriteLine("Error parsing arguments! Aborting...");
+                Console.Read();
                 Environment.Exit(-101);
             }
 
@@ -39,6 +38,7 @@ namespace Lunar.Recorder
             if (!InitAWSServices())
             {
                 Console.WriteLine("Error to initialize AWS services.");
+                Console.Read();
                 Environment.Exit(-102);
             }
 
@@ -46,6 +46,7 @@ namespace Lunar.Recorder
             if (InitMongoDb())
             {
                 Console.WriteLine("Error to initialize MongoDb. Please, check appConfig values.");
+                Console.Read();
                 Environment.Exit(-103);
 
             }
@@ -128,30 +129,30 @@ namespace Lunar.Recorder
         }
 
 
-        private static bool ParseArguments(FlexibleOptions options)
+        private static bool InitAppConfigValues()
         {
             try
             {
                 // AWS Keys
-                AWSAccessKey = options.Get("AWSAccessKey");
-                AWSSecretKey = options.Get("AWSSecretKey");
+                AWSAccessKey            = Utils.LoadConfigurationSetting("AWSAccessKey", "");
+                AWSSecretKey            = Utils.LoadConfigurationSetting("AWSSecretKey", "");
 
                 // SQS                                    
-                ProcessedQueueName = options.Get("ProcessedQueueName");
+                ProcessedQueueName      = Utils.LoadConfigurationSetting("ProcessedQueueName", "");
 
                 // Initialize SQS object
-                ProcessedQueue = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
+                ProcessedQueue          = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
 
                 // MongoDB
-                MongoAddress        = options.Get("MongoAddress");
-                MongoUser           = options.Get("MongoUser");
-                MongoPassword       = options.Get("MongoPassword");
-                MongoDatabase       = options.Get("MongoDatabase");
-                MongoCollection     = options.Get("MongoCollection");
+                MongoAddress            = Utils.LoadConfigurationSetting("MongoAddress", "");
+                MongoUser               = Utils.LoadConfigurationSetting("MongoUser", "");
+                MongoPassword           = Utils.LoadConfigurationSetting("MongoPassword", "");
+                MongoDatabase           = Utils.LoadConfigurationSetting("MongoDatabase", "");
+                MongoCollection         = Utils.LoadConfigurationSetting("MongoCollection", "");
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error while parsing arguments. Error Message: {0}", ex.Message);
+                Console.WriteLine("Error while parsing app config values. Error Message: {0}", ex.Message);
                 return false;
             }
 
@@ -162,7 +163,7 @@ namespace Lunar.Recorder
         {
             bool result = true;
 
-            string processederrormessage     = String.Empty;
+            string processederrormessage = String.Empty;
 
             try
             {
