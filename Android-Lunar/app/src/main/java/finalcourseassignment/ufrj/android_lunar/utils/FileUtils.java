@@ -3,6 +3,9 @@ package finalcourseassignment.ufrj.android_lunar.utils;
 import android.content.Context;
 import android.os.Environment;
 
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -38,7 +41,7 @@ public class FileUtils
 
     public static void SaveData(File file, String data)
     {
-        //Se falhou em pegar algum dado de um sensor, temos que impedir que seja salvo
+        // Is there some problem with this data?
         if (data.contains(";;") == true) //|| data.contains("0.0"))
             return;
 
@@ -77,6 +80,7 @@ public class FileUtils
 
 
     public static String getDateTimeSystem() {
+        /*
         Calendar calendar = Calendar.getInstance();
 
         calendar.setTime(new Date());
@@ -88,6 +92,23 @@ public class FileUtils
                 calendar.get(Calendar.MINUTE) + "_" +
                 calendar.get(Calendar.SECOND);
 
-        return result;
+        */
+
+        DateTime dt = new DateTime(DateTimeZone.UTC);
+
+        StringBuilder result = new StringBuilder();
+        result.append(String.valueOf(dt.getYear()));
+        result.append("_");
+        result.append(String.valueOf(dt.getMonthOfYear()));
+        result.append("_");
+        result.append(String.valueOf(dt.getDayOfMonth()));
+        result.append("_");
+        result.append(String.valueOf(dt.getHourOfDay()));
+        result.append("_");
+        result.append(String.valueOf(dt.getMinuteOfHour()));
+        result.append("_");
+        result.append(String.valueOf(dt.getSecondOfMinute()));
+
+        return result.toString();
     }
 }
