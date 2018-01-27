@@ -49,6 +49,10 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="WebUtilsLib, Version=3.0.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Dependencies\WebUtilsLib.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Worker.cs" />
@@ -66,6 +70,9 @@
   </ItemGroup>
   <ItemGroup>
     <Analyzer Include="..\packages\AWSSDK.SQS.3.3.3.2\analyzers\dotnet\cs\AWSSDK.SQS.CodeAnalysis.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Dependencies\WebUtilsLib.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
