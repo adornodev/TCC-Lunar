@@ -15,7 +15,6 @@ namespace Lunar.Worker
 {
     public class Worker
     {
-        public  static  FlexibleOptions     ProgramOptions;
         private static GetQueueUrlResponse  Response;
         private static string               AWSAccessKey;
         private static string               AWSSecretKey;
@@ -23,13 +22,14 @@ namespace Lunar.Worker
         private static string               ProcessedQueueName;
         private static SQSUtils             ToBeProcessedQueue;
         private static SQSUtils             ProcessedQueue;
+
         static void Main(string[] args)
         {
             // Load config
             Console.WriteLine("Loading config file");
-            if (!ParseArguments(ProgramOptions))
+            if (!InitAppConfigValues())
             {
-                Console.WriteLine("Error parsing arguments! Aborting...");
+                Console.Read();
                 Environment.Exit(-101);
             }
 
@@ -37,6 +37,7 @@ namespace Lunar.Worker
             if (!InitAWSServices())
             {
                 Console.WriteLine("Error to initialize AWS services.");
+                Console.Read();
                 Environment.Exit(-102);
             }
 
@@ -49,7 +50,7 @@ namespace Lunar.Worker
                 if (messages == null || messages.Count == 0)
                 {
                     Console.WriteLine("Do not have messages to be process!...");
-                    Thread.Sleep(1000 * 10);
+                    Thread.Sleep(1000 * 60);
                 }
                 else
                 {
@@ -58,8 +59,7 @@ namespace Lunar.Worker
                     {
                         // Go to process messages
                         MobileRecordObject mobileObj = ProcessMessage(message);
-
-                        
+                   
                         if (mobileObj != null)
                         {
                             // Send to ProcessedQueue
@@ -95,26 +95,26 @@ namespace Lunar.Worker
             }
         }
 
-        private static bool ParseArguments(FlexibleOptions options)
+        private static bool InitAppConfigValues()
         {
             try
             {
                 // AWS Keys
-                AWSAccessKey = options.Get("AWSAccessKey");
-                AWSSecretKey = options.Get("AWSSecretKey");
+                AWSAccessKey            = Utils.LoadConfigurationSetting("AWSAccessKey", "");
+                AWSSecretKey            = Utils.LoadConfigurationSetting("AWSSecretKey", "");
 
                 // SQS                                    
-                ToBeProcessedQueueName = options.Get("ToBeProcessedQueueName");
-                ProcessedQueueName     = options.Get("ProcessedQueueName");
+                ToBeProcessedQueueName  = Utils.LoadConfigurationSetting("ToBeProcessedQueueName", "");
+                ProcessedQueueName      = Utils.LoadConfigurationSetting("ProcessedQueueName", "");
 
                 // Initialize SQS object
-                ToBeProcessedQueue  = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeProcessedQueueName);
-                ProcessedQueue      = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
+                ToBeProcessedQueue      = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeProcessedQueueName);
+                ProcessedQueue          = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
 
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error while parsing arguments. Error Message: {0}", ex.Message);
+                Console.WriteLine("Error while parsing app config values. Error Message: {0}", ex.Message);
                 return false;
             }
 
@@ -145,15 +145,19 @@ namespace Lunar.Worker
 
         private static MobileRecordObject ProcessMessage(Message message)
         {
-            MobileRecordObject mobileObj = new MobileRecordObject();
 
             try
             {
                 // Decompress and Deserialize message
-                mobileObj = JsonConvert.DeserializeObject<MobileRecordObject>(Compression.Decompress(message.Body));
+                MobileRecordObject mobileObj = JsonConvert.DeserializeObject<MobileRecordObject>(message.Body);
+
+                // Get OutputId
+                mobileObj.OutputId = mobileObj.ExtractOutputIdFromInt(mobileObj.Output);
 
                 // Extract Addres from XXX API
                 ExtractAddressFromGPSCoordinates(ref mobileObj);
+
+                return mobileObj;
 
             }
             catch (Exception ex)
@@ -161,8 +165,6 @@ namespace Lunar.Worker
                 Console.WriteLine(String.Format("Error while treating message from {0}: {1}", ToBeProcessedQueueName, ex.Message));
                 return null;
             }
-
-            return mobileObj;
         }
 
         private static void ExtractAddressFromGPSCoordinates (ref MobileRecordObject mobileObj)
