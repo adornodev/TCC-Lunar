@@ -12,7 +12,7 @@ using System.Web.Http;
 namespace Lunar.Api.Controllers
 {
     [RoutePrefix("api/v1/public")]
-    public class AddressController : ApiController
+    public class MobileController : ApiController
     {
         private static MongoCollection Collection { get; set; }
 
@@ -20,7 +20,7 @@ namespace Lunar.Api.Controllers
         [Route("mobilerecods/{output}")]
         public HttpResponseMessage GetMobileRecordsById(int output)
         {
-            // Inicializa as componentes do banco
+            // Initialize mongo properties
             if (!InitMongoDb())
             {
                 return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed connection with Database");
