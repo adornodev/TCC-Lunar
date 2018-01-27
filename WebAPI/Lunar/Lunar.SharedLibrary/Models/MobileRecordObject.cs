@@ -19,12 +19,9 @@ namespace Lunar.SharedLibrary.Models
         public long         Timestamp       { get; set; }
         public int          Tilt            { get; set; }
 
-        public int             Output       { get; private set; }
-        public Enums.Output    OutputId     { get { return _OutPut; } set { _OutPut = value; Output = EnumsHelper.OutputToInt(value); } }
+        public int          Output          { get; set; }
 
-        // Private attribute to convert Enum to Int
-        private Enums.Output    _OutPut;
-
+        public string       OutputId        { get; set; }
 
         public MobileRecordObject()
         {
@@ -33,8 +30,21 @@ namespace Lunar.SharedLibrary.Models
             this.Accelerometer_Y = Double.MinValue;
             this.Accelerometer_Z = Double.MinValue;
             this.Tilt            = int.MinValue;
-            this.Output          = -1;
-            this.OutputId        = Enums.Output.NotClassified;
+        }
+
+        public string ExtractOutputIdFromInt(int output)
+        {
+            switch (output)
+            {
+                case 0:
+                    return "NotClassified";
+                case 1:
+                    return "Pothole";
+                case 2:
+                    return "SpeedBump";
+            }
+
+            return "Unknown";
         }
 
         public string AsJSONString()
