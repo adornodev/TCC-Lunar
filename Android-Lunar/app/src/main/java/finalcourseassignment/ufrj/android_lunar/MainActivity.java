@@ -49,7 +49,7 @@ import io.nlopez.smartlocation.location.providers.LocationGooglePlayServicesProv
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener
 {
-    final int TIME_TO_SAVE_DATA = 30;
+    final int TIME_TO_SAVE_DATA = 100;
 
     Button btnActivate;
     Button btnPothole;
@@ -126,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sensorAccelerometerManager  = (SensorManager) getSystemService(SENSOR_SERVICE);
         handler  = new Handler();
         listTv   = new ArrayList<>();
-        
+
         // Initialize AWS Fields
         InitializeAWSFields();
 
@@ -154,8 +154,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 }
 
                 // Format data
-                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()),0);
-                //String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),0);
+                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()),1);
+                //String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),1);
 
                 // Send data to SQS
                 new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
@@ -169,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     isFirstClickPotholeButton = false;
 
                 // Info Message
-                Toast.makeText(MainActivity.this,"Buraco adicionado",Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, getString(R.string.msg_pothole_added), Toast.LENGTH_SHORT).show();
             }
         });
         //endregion
@@ -188,8 +188,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 }
 
                 // Format data
-                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()),1);
-                //String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),1);
+                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()),2);
+                //String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),2);
 
                 // Send data to SQS
                 new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     isFirstClickSpeedBumpButton = false;
 
                 // Info Message
-                Toast.makeText(MainActivity.this,"Quebra mola adicionado",Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, getString(R.string.msg_speedbump_added), Toast.LENGTH_SHORT).show();
             }
         });
         //endregion
@@ -487,22 +487,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         tvAccelerometerY.setText("Y: " + event.values[1]);
         tvAccelerometerZ.setText("Z: " + event.values[2]);
 
-        // Add textViews into list to extract accelerometer's value after that
+        // Add textViews into listTv to extract accelerometer's value after that
         listTv.clear();
         listTv.add(tvAccelerometerX);
         listTv.add(tvAccelerometerY);
         listTv.add(tvAccelerometerZ);
 
-        // Get Tilt
-        int tilt = getTilt(event.values);
-
         // Get current Time
         curTime = System.currentTimeMillis();
 
-        // Check if you have already spent the time needed to save the data
+        // Make sure you've waited the time to save the data
         if ((curTime - lastUpdate) > TIME_TO_SAVE_DATA)
         {
-            FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
+            // Format data
+            String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0, getTilt(event.values));
+
+            // Send data to SQS
+            new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
+
+            //FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
+
             lastUpdate = curTime;
         }
     }
@@ -561,8 +565,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     public String formatToJsonString(long time, int id)
     {
-        //id -> 0 Pothole
-        //id -> 1 SpeedBump
+        //id -> 0 No Event
+        //id -> 1 Pothole
+        //id -> 2 SpeedBump
 
         listTv.clear();
         listTv.add(tvAccelerometerX);
@@ -570,7 +575,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         listTv.add(tvAccelerometerZ);
 
         JSONObject   jsonobj        = new JSONObject();
-        List<String> accelerometers = new ArrayList<String>();
+        List<String> accelerometers = new ArrayList<>();
 
         try
         {
@@ -609,6 +614,60 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return jsonobj.toString();
 
     }
+
+    public String formatToJsonString(long time, int id, int tilt)
+    {
+        //id -> 0 No Event
+        //id -> 1 Pothole
+        //id -> 2 SpeedBump
+
+        listTv.clear();
+        listTv.add(tvAccelerometerX);
+        listTv.add(tvAccelerometerY);
+        listTv.add(tvAccelerometerZ);
+
+        JSONObject   jsonobj        = new JSONObject();
+        List<String> accelerometers = new ArrayList<>();
+
+        try
+        {
+            // Iterate over all TextViews (accelerometers)
+            for (TextView tV : listTv)
+            {
+                String data = tV.getText().toString().substring(2).trim();
+
+                // Check if the number is in scientific formatting. If so, it will have to be converted
+                if (data.contains("E") == true)
+                    data = new BigDecimal(data).toString();
+
+                accelerometers.add(data);
+            }
+
+            // Add into json object if i have all values
+            if (accelerometers.size() == 3)
+            {
+                jsonobj.put("Accelerometer_X", accelerometers.get(0));
+                jsonobj.put("Accelerometer_Y", accelerometers.get(1));
+                jsonobj.put("Accelerometer_Z", accelerometers.get(2));
+                jsonobj.put("Latitude"       , latitude);
+                jsonobj.put("Longitude"      , longitude);
+                jsonobj.put("Timestamp"      , time);
+                jsonobj.put("Tilt"           , tilt);
+                jsonobj.put("AcquireDate"    , new DateTime(DateTimeZone.UTC));
+                jsonobj.put("Output"         , id);
+            }
+
+        }
+        catch (JSONException e)
+        {
+            e.printStackTrace();
+            Log.e("LUNAR","Error to build json object. Message: " + e.getMessage());
+        }
+
+        return jsonobj.toString();
+
+    }
+
     public String formatSpeedBumpHoleLineToSaveTxtFile(long timer, int id) {
 
         //id -> 0 Pothole
