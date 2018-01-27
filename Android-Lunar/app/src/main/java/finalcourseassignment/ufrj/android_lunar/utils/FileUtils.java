@@ -39,7 +39,7 @@ public class FileUtils
         return false;
     }
 
-    public static void SaveData(File file, String data)
+    public static void saveData(File file, String data)
     {
         // Is there some problem with this data?
         if (data.contains(";;") == true) //|| data.contains("0.0"))
@@ -80,23 +80,10 @@ public class FileUtils
 
 
     public static String getDateTimeSystem() {
-        /*
-        Calendar calendar = Calendar.getInstance();
 
-        calendar.setTime(new Date());
-
-        String result = calendar.get(Calendar.YEAR) + "_" +
-                (calendar.get(Calendar.MONTH) + 1) + "_" +
-                calendar.get(Calendar.DAY_OF_MONTH) + "_" +
-                calendar.get(Calendar.HOUR) + "_" +
-                calendar.get(Calendar.MINUTE) + "_" +
-                calendar.get(Calendar.SECOND);
-
-        */
-
-        DateTime dt = new DateTime(DateTimeZone.UTC);
-
+        DateTime      dt     = new DateTime(DateTimeZone.UTC);
         StringBuilder result = new StringBuilder();
+
         result.append(String.valueOf(dt.getYear()));
         result.append("_");
         result.append(String.valueOf(dt.getMonthOfYear()));
