@@ -12,7 +12,7 @@ using System.Web.Http;
 
 namespace Lunar.Api.Controllers
 {
-    [RoutePrefix("api/v1/public")]
+    [RoutePrefix("api/v1/public/lunar")]
     public class MobileController : ApiController
     {
         private static MongoCollection  Collection { get; set; }
@@ -23,9 +23,10 @@ namespace Lunar.Api.Controllers
         private static string           MongoCollection;
 
         [HttpGet]
-        [Route("mobilerecods/{output}")]
-        public HttpResponseMessage GetMobileRecordsById(int output)
+        [Route("")]
+        public HttpResponseMessage GetMobileRecordsById([FromUri] ApiQueryObject queryObject)
         {
+
             // Initialize AppConfig files
             if (!InitAppConfigValues())
             {
@@ -41,7 +42,15 @@ namespace Lunar.Api.Controllers
             List<string> results = new List<string>();
             try
             {
-                MongoCursor<LunarObject> cursor = Collection.FindAs<LunarObject>(Query.EQ("Output", output));
+                bool success;
+
+                // Build query from GET parameters
+                IMongoQuery query = BuildQuery(queryObject, out success);
+
+                if (!success || query == null)
+                    throw new Exception();
+
+                MongoCursor<LunarObject> cursor = Collection.FindAs<LunarObject>(query).SetLimit(queryObject.Limit);
 
                 // Iterate over all records on collection
                 foreach (LunarObject rec in cursor)
@@ -51,13 +60,55 @@ namespace Lunar.Api.Controllers
             }
             catch (Exception ex)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Fail to get records from Database");
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Fail to get records from Database. Check the documentation to see how the parameter works. Message: " + ex.Message);
             }
 
             return Request.CreateResponse(HttpStatusCode.OK, results);
         }
 
-         private static bool InitAppConfigValues()
+        private IMongoQuery BuildQuery(ApiQueryObject queryObject, out bool success)
+        {
+            success           = false;
+            IMongoQuery query = null;
+
+            // "numberOfDay" as parameter
+            if (queryObject.Output == int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue)
+            {
+                success = true;
+                query   = Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays));
+            }
+            
+            // "output" as parameter
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue)
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query   = Query.And(Query.EQ("Output", queryObject.Output), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)));
+                }
+            }
+
+            // "latitude" and "longitude" as parameters
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue)
+            {
+                success = true;
+                query   = Query.And(Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)));
+            }
+
+            // "output", "latitude" and "longitude" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue)
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query   = Query.And(Query.EQ("Output", queryObject.Output), Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)));
+                }
+            }
+
+            return query;
+        }
+
+        private static bool InitAppConfigValues()
         {
             try
             {
@@ -73,7 +124,6 @@ namespace Lunar.Api.Controllers
 
             return true;
         }
-
 
         private static bool InitMongoDb()
         {
