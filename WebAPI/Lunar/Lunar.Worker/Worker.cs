@@ -162,7 +162,7 @@ namespace Lunar.Worker
                 // Get OutputId
                 mobileObj.OutputId = mobileObj.ExtractOutputIdFromInt(mobileObj.Output);
 
-                if (mobileObj.Latitude != 0 && mobileObj.Longitude != 0) // && mobileObj.Output != 0
+                if (mobileObj.Latitude != 0.0 && mobileObj.Longitude != 0.0 && mobileObj.Output != 0)
                     // Extract Address from Google Reverse Geocoding API
                     lunarObj = ExtractAddressFromGPSCoordinates(mobileObj);
 
