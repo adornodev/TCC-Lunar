@@ -42,7 +42,7 @@ namespace Lunar.Recorder
             }
 
             // Initialize MongoDB
-            if (InitMongoDb())
+            if (!InitMongoDb())
             {
                 Console.WriteLine("Error to initialize MongoDb. Please, check appConfig values.");
                 Console.Read();
@@ -54,7 +54,7 @@ namespace Lunar.Recorder
 
             while (true)
             {
-                List<LunarObject> lunarObjs = new List<LunarObject>();
+                List<MobileRecordObject> mobileObjs = new List<MobileRecordObject>();
 
                 // Get messages from SQS
                 List<Message> messages = ProcessedQueue.GetMessagesFromQueue(out errorMessage);
@@ -71,16 +71,16 @@ namespace Lunar.Recorder
                     foreach (Message message in messages)
                     {
                         // Deserialize message
-                        LunarObject lunarObj = JsonConvert.DeserializeObject<LunarObject>(Compression.Decompress(message.Body));
+                        MobileRecordObject obj = JsonConvert.DeserializeObject<MobileRecordObject>(Compression.Decompress(message.Body));
 
-                        if (lunarObj != null)
-                            lunarObjs.Add(lunarObj);
+                        if (obj != null)
+                            mobileObjs.Add(obj);
 
                         // Trace Message
                         if (countSentMessages % 10 == 0)
                         {
                             // Send register to database
-                            SendObjectToMongoDb(lunarObjs);
+                            SendObjectToMongoDb(mobileObjs);
 
                             Console.WriteLine("Already sent {0} messages", (++countSentMessages));
                         }
@@ -92,9 +92,9 @@ namespace Lunar.Recorder
                         }
                     }
 
-                    if (lunarObjs.Count != 0)
+                    if (mobileObjs.Count != 0)
                         // Send register to database
-                        SendObjectToMongoDb(lunarObjs);
+                        SendObjectToMongoDb(mobileObjs);
                 }
             }
         }
@@ -122,9 +122,9 @@ namespace Lunar.Recorder
             return true;
         }
 
-        private static void SendObjectToMongoDb(List<LunarObject> objs)
+        private static void SendObjectToMongoDb(List<MobileRecordObject> objs)
         {
-            Collection.InsertBatch<LunarObject>(objs);
+            Collection.InsertBatch(objs);
         }
 
 

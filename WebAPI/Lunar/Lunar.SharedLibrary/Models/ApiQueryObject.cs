@@ -33,9 +33,9 @@ namespace Lunar.SharedLibrary.Models
         public int      Limit         { get { return _Limit; }  set {
                                                                             if (value > 1000)
                                                                             {
-                                                                                _Limit = 30;
+                                                                                _Limit = 100;
                                                                             }
-                                                                            else if (value > 0 && value <= 30)
+                                                                            else if (value > 0 && value <= 100)
                                                                                 _Limit = value;
                                                                     }}
 

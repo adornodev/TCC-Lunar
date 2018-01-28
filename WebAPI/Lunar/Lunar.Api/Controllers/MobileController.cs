@@ -26,6 +26,11 @@ namespace Lunar.Api.Controllers
         [Route("")]
         public HttpResponseMessage GetMobileRecordsById([FromUri] ApiQueryObject queryObject)
         {
+            // Sanity check
+            if (queryObject == null)
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "You must have to build URL with parameters. Look at API documentation.");
+            }
 
             // Initialize AppConfig files
             if (!InitAppConfigValues())
@@ -50,10 +55,10 @@ namespace Lunar.Api.Controllers
                 if (!success || query == null)
                     throw new Exception();
 
-                MongoCursor<LunarObject> cursor = Collection.FindAs<LunarObject>(query).SetLimit(queryObject.Limit);
+                MongoCursor<MobileRecordObject> cursor = Collection.FindAs<MobileRecordObject>(query).SetLimit(queryObject.Limit);
 
                 // Iterate over all records on collection
-                foreach (LunarObject rec in cursor)
+                foreach (MobileRecordObject rec in cursor)
                 {
                     results.Add(JsonConvert.SerializeObject(rec));
                 }
@@ -120,7 +125,7 @@ namespace Lunar.Api.Controllers
                 MongoCollection = Utils.LoadConfigurationSetting("MongoCollection"  , "");
 
             }
-            catch (Exception ex) { return false; }
+            catch { return false; }
 
             return true;
         }
@@ -142,7 +147,7 @@ namespace Lunar.Api.Controllers
                 if (Collection == null)
                     return false;
             }
-            catch (Exception ex) { return false; }
+            catch { return false; }
 
             return true;
         }

@@ -70,7 +70,6 @@
   <ItemGroup>
     <Compile Include="Models\ApiQueryObject.cs" />
     <Compile Include="Models\GoogleReverseGeocondingObject.cs" />
-    <Compile Include="Models\LunarObject.cs" />
     <Compile Include="Models\MobileRecordObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utils\Compression.cs" />

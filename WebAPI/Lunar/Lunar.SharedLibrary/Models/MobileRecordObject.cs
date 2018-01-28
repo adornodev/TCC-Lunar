@@ -9,6 +9,8 @@ namespace Lunar.SharedLibrary.Models
     [BsonIgnoreExtraElements]
     public class MobileRecordObject
     {
+        private int _Output;
+
         public ObjectId     _id             { get; set; }
         public DateTime     AcquireDate     { get; set; }
         public double       Accelerometer_X { get; set; }
@@ -16,12 +18,13 @@ namespace Lunar.SharedLibrary.Models
         public double       Accelerometer_Z { get; set; }
         public double       Latitude        { get; set; }
         public double       Longitude       { get; set; }
+        public string       Address         { get; set; }
         public long         Timestamp       { get; set; }
         public int          Tilt            { get; set; }
 
-        public int          Output          { get; set; }
+        public int          Output          { get { return _Output; } set { _Output = value; OutputId = ExtractOutputIdFromInt(value); }}
 
-        public string       OutputId        { get; set; }
+        private string      OutputId        { get; set; }
 
         public MobileRecordObject()
         {
@@ -33,6 +36,7 @@ namespace Lunar.SharedLibrary.Models
             this.Longitude       = Double.MinValue;
             this.Output          = int.MinValue;
             this.Tilt            = int.MinValue;
+            this.Address         = String.Empty;
         }
 
         public string ExtractOutputIdFromInt(int output)

@@ -171,7 +171,7 @@ namespace Lunar.SharedLibrary.Utils
             return result;
         }
 
-        public bool EnqueueMessage(string msgbody, out string errormessage, int maxretries = 5)
+        public bool EnqueueMessage(string msgbody, out string errormessage, int maxretries = 3)
         {
             // Insert domain info into queue
             bool result = false;

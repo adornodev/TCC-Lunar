@@ -61,12 +61,12 @@ namespace Lunar.Worker
                     foreach (Message message in messages)
                     {
                         // Go to process messages
-                        LunarObject lunarObject = ProcessMessage(message);
+                        MobileRecordObject obj = ProcessMessage(message);
                    
-                        if (lunarObject != null)
+                        if (obj != null)
                         {
                             // Send to ProcessedQueue
-                            SendToProcessedQueue(lunarObject);
+                            SendToProcessedQueue(obj);
 
                             // Trace Message
                             if (countProcessedMessages % 10 == 0)
@@ -84,7 +84,7 @@ namespace Lunar.Worker
             }   
         }
 
-        private static void SendToProcessedQueue(LunarObject obj)
+        private static void SendToProcessedQueue(MobileRecordObject obj)
         {
             string errorMessage = String.Empty;
             
@@ -150,37 +150,33 @@ namespace Lunar.Worker
             return result;
         }
 
-        private static LunarObject ProcessMessage(Message message)
+        private static MobileRecordObject ProcessMessage(Message message)
         {
-            LunarObject lunarObj = null;
 
             try
             {
                 // Decompress and Deserialize message
                 MobileRecordObject mobileObj = JsonConvert.DeserializeObject<MobileRecordObject>(message.Body);
 
-                // Get OutputId
-                mobileObj.OutputId = mobileObj.ExtractOutputIdFromInt(mobileObj.Output);
-
                 if (mobileObj.Latitude != 0.0 && mobileObj.Longitude != 0.0 && mobileObj.Output != 0)
                     // Extract Address from Google Reverse Geocoding API
-                    lunarObj = ExtractAddressFromGPSCoordinates(mobileObj);
+                    ExtractAddressFromGPSCoordinates(ref mobileObj);
 
-                return lunarObj;
+                return mobileObj;
 
             }
             catch (Exception ex)
             {
                 Console.WriteLine(String.Format("Error while treating message from {0}: {1}", ToBeProcessedQueueName, ex.Message));
-                return lunarObj;
+                return null;
             }
         }
 
-        private static LunarObject ExtractAddressFromGPSCoordinates (MobileRecordObject mobileObj)
+        private static void ExtractAddressFromGPSCoordinates (ref MobileRecordObject mobileObj)
         {
             // Sanity check
             if (mobileObj.Latitude == 0 || mobileObj.Longitude == 0)
-                return null;
+                return;
 
             // Build the url
             string finalUrl = String.Format(GoogleReverseGeocodingUrlTemplate, mobileObj.Latitude.ToString().Replace(",","."), mobileObj.Longitude.ToString().Replace(",", "."), GoogleReverseGeocodingKey);
@@ -193,31 +189,25 @@ namespace Lunar.Worker
 
             // Checking if jsonstr is valid
             if (String.IsNullOrEmpty(jsonstr))
-                return null;
+                return;
 
             try
             {
                 GoogleReverseGeocondingObject rcObj = JsonConvert.DeserializeObject<GoogleReverseGeocondingObject>(jsonstr);
 
                 if (rcObj.status.ToUpper().Equals("OK") && rcObj.results != null && rcObj.results.Count >= 1)
-                {
-                    LunarObject lunarObject     = new LunarObject();
-                    lunarObject.Address         = rcObj.results[0].formatted_address;
-                    lunarObject.MobileObject    = mobileObj;
+                    mobileObj.Address = rcObj.results[0].formatted_address;
 
-                    return lunarObject;
-                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error to deserialize GoogleReverseGeocondingObject. Message: {0}", ex.Message);
             }
 
-            return null;
         }
 
 
-        public static string Get(ref WebRequests client, string url, int retries = 5)
+        public static string Get(ref WebRequests client, string url, int retries = 3)
         {
             string htmlResponse = String.Empty;
            
