@@ -68,6 +68,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Models\ApiQueryObject.cs" />
     <Compile Include="Models\GoogleReverseGeocondingObject.cs" />
     <Compile Include="Models\LunarObject.cs" />
     <Compile Include="Models\MobileRecordObject.cs" />

@@ -29,6 +29,9 @@ namespace Lunar.SharedLibrary.Models
             this.Accelerometer_X = Double.MinValue;
             this.Accelerometer_Y = Double.MinValue;
             this.Accelerometer_Z = Double.MinValue;
+            this.Latitude        = Double.MinValue;
+            this.Longitude       = Double.MinValue;
+            this.Output          = int.MinValue;
             this.Tilt            = int.MinValue;
         }
 
