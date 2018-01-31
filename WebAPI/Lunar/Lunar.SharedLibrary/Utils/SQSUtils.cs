@@ -66,7 +66,7 @@ namespace Lunar.SharedLibrary.Utils
             return true;
         }
 
-        public List<Message> GetMessagesFromQueue(out string errormessage)
+        public List<Message> GetMessagesFromQueue(out string errormessage, int numberOfMessages = 10)
         {
             errormessage = String.Empty;
 
@@ -74,6 +74,8 @@ namespace Lunar.SharedLibrary.Utils
 
             try
             {
+                rcvMessageRequest.MaxNumberOfMessages = numberOfMessages;
+
                 ReceiveMessageResponse  receiveMessageResponse  = queue.ReceiveMessage(rcvMessageRequest);
 
                 result = receiveMessageResponse.Messages;
@@ -100,17 +102,17 @@ namespace Lunar.SharedLibrary.Utils
                 try
                 {
                     // Get queue url
-                    GetQueueUrlRequest sqsRequest = new GetQueueUrlRequest();
-                    sqsRequest.QueueName = QueueName;
-                    queueurl = queue.GetQueueUrl(sqsRequest);
+                    GetQueueUrlRequest sqsRequest   = new GetQueueUrlRequest();
+                    sqsRequest.QueueName            = QueueName;
+                    queueurl                        = queue.GetQueueUrl(sqsRequest);
 
                     // Format receive messages request
-                    rcvMessageRequest = new ReceiveMessageRequest();
-                    rcvMessageRequest.QueueUrl = queueurl.QueueUrl;
+                    rcvMessageRequest                     = new ReceiveMessageRequest();
+                    rcvMessageRequest.QueueUrl            = queueurl.QueueUrl;
                     rcvMessageRequest.MaxNumberOfMessages = maxnumberofmessages;
 
                     // Format the delete messages request
-                    delMessageRequest = new DeleteMessageRequest();
+                    delMessageRequest          = new DeleteMessageRequest();
                     delMessageRequest.QueueUrl = queueurl.QueueUrl;
 
                     success = true;
@@ -132,8 +134,9 @@ namespace Lunar.SharedLibrary.Utils
             try
             {
                 delMessageRequest.ReceiptHandle = message.ReceiptHandle;
+
                 delMessageResponse = queue.DeleteMessage(delMessageRequest);
-                result = delMessageResponse.HttpStatusCode == System.Net.HttpStatusCode.OK;
+                result             = delMessageResponse.HttpStatusCode == System.Net.HttpStatusCode.OK;
             }
             catch (Exception ex)
             {
