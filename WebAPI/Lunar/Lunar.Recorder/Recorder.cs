@@ -82,6 +82,7 @@ namespace Lunar.Recorder
                             // Send register to database
                             SendObjectToMongoDb(mobileObjs);
 
+                            mobileObjs.Clear();
                             Console.WriteLine("Already sent {0} messages", (++countSentMessages));
                         }
 
