@@ -26,6 +26,7 @@ namespace Lunar.Worker
         private static string               GoogleReverseGeocodingKey;
         private static string               GoogleReverseGeocodingUrlTemplate = "https://maps.googleapis.com/maps/api/geocode/json?latlng={0},{1}&key={2}&language=pt-BR";
 
+        
         static void Main(string[] args)
         {
             // Load config
@@ -158,9 +159,13 @@ namespace Lunar.Worker
                 // Decompress and Deserialize message
                 MobileRecordObject mobileObj = JsonConvert.DeserializeObject<MobileRecordObject>(message.Body);
 
-                if (mobileObj.Latitude != 0.0 && mobileObj.Longitude != 0.0 && mobileObj.Output != 0)
-                    // Extract Address from Google Reverse Geocoding API
-                    ExtractAddressFromGPSCoordinates(ref mobileObj);
+                // Is it a valid object?
+                if (ValidMobileObject(mobileObj))
+                {
+                    if (mobileObj.Latitude != 0.0 && mobileObj.Longitude != 0.0 && mobileObj.Output != 0)
+                        // Extract Address from Google Reverse Geocoding API
+                        ExtractAddressFromGPSCoordinates(ref mobileObj);
+                }
 
                 return mobileObj;
 
@@ -170,6 +175,25 @@ namespace Lunar.Worker
                 Console.WriteLine(String.Format("Error while treating message from {0}: {1}", ToBeProcessedQueueName, ex.Message));
                 return null;
             }
+        }
+
+        private static bool ValidMobileObject(MobileRecordObject mobileObj)
+        {
+            bool result = true;
+
+            // About GPS
+            if (mobileObj.Latitude == 0.0 || mobileObj.Longitude == 0)
+                result = false;
+
+            // About OutputId
+            if (mobileObj.OutputId.ToUpper().Equals("UNKNOWN"))
+                result = false;
+
+            // About Tilt
+            if (mobileObj.Tilt != int.MinValue && Math.Abs(mobileObj.Tilt) > Constants.LIMIT_TILT_PHONE)
+                result = false;
+
+            return result;
         }
 
         private static void ExtractAddressFromGPSCoordinates (ref MobileRecordObject mobileObj)
@@ -234,7 +258,7 @@ namespace Lunar.Worker
 
                 retries -= 1;
 
-                Console.WriteLine(String.Format("Status Code not OK. Retries left: {0}", retries));
+                Console.WriteLine(String.Format("Status Code not OK. Retries left: {0}. Url: {1}", retries, url));
 
                 Console.WriteLine("StatusCode = " + client.StatusCode + " Message = " + client.Error);
 
