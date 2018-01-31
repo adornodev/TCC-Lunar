@@ -17,6 +17,7 @@ namespace Lunar.Worker
 {
     public class Worker
     {
+        private static int                  CaptureInterval;
         private static string               AWSAccessKey;
         private static string               AWSSecretKey;
         private static string               ToBeProcessedQueueName;
@@ -25,7 +26,6 @@ namespace Lunar.Worker
         private static SQSUtils             ProcessedQueue;
         private static string               GoogleReverseGeocodingKey;
         private static string               GoogleReverseGeocodingUrlTemplate = "https://maps.googleapis.com/maps/api/geocode/json?latlng={0},{1}&key={2}&language=pt-BR";
-
         
         static void Main(string[] args)
         {
@@ -54,7 +54,7 @@ namespace Lunar.Worker
                 if (messages == null || messages.Count == 0)
                 {
                     Console.WriteLine("Do not have messages to be process!...");
-                    Thread.Sleep(1000 * 60);
+                    Thread.Sleep(1000 * CaptureInterval);
                 }
                 else
                 {
@@ -104,20 +104,22 @@ namespace Lunar.Worker
             try
             {
                 // AWS Keys
-                AWSAccessKey            = Utils.LoadConfigurationSetting("AWSAccessKey", "");
-                AWSSecretKey            = Utils.LoadConfigurationSetting("AWSSecretKey", "");
+                AWSAccessKey                = Utils.LoadConfigurationSetting("AWSAccessKey", "");
+                AWSSecretKey                = Utils.LoadConfigurationSetting("AWSSecretKey", "");
 
-                // SQS                                    
-                ToBeProcessedQueueName  = Utils.LoadConfigurationSetting("ToBeProcessedQueueName", "");
-                ProcessedQueueName      = Utils.LoadConfigurationSetting("ProcessedQueueName", "");
+                // SQS                                        
+                ToBeProcessedQueueName      = Utils.LoadConfigurationSetting("ToBeProcessedQueueName", "");
+                ProcessedQueueName          = Utils.LoadConfigurationSetting("ProcessedQueueName", "");
 
-                // Initialize SQS object
-                ToBeProcessedQueue      = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeProcessedQueueName);
-                ProcessedQueue          = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
+                // Initialize SQS object    
+                ToBeProcessedQueue          = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeProcessedQueueName);
+                ProcessedQueue              = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
 
                 // Reverse Geocoding Key
-                GoogleReverseGeocodingKey = Utils.LoadConfigurationSetting("ReverseGeocodingApiKey", "");
+                GoogleReverseGeocodingKey   = Utils.LoadConfigurationSetting("ReverseGeocodingApiKey", "");
 
+                // Configuration Fields
+                CaptureInterval             = Int32.Parse(Utils.LoadConfigurationSetting("CaptureInterval", "30"));
 
             }
             catch (Exception ex)
@@ -139,7 +141,7 @@ namespace Lunar.Worker
             try
             {
                 // Is there ToBeProcessed Queue?
-                if (!ToBeProcessedQueue.OpenQueue(1, out tobeprocessederrormessage))
+                if (!ToBeProcessedQueue.OpenQueue(10, out tobeprocessederrormessage))
                     result = false;
 
                 // Is there Processed Queue?
@@ -158,6 +160,9 @@ namespace Lunar.Worker
             {
                 // Decompress and Deserialize message
                 MobileRecordObject mobileObj = JsonConvert.DeserializeObject<MobileRecordObject>(message.Body);
+
+                // Info Message
+                Console.WriteLine(String.Format(">> Processing message with:  X -> {0}\tY -> {1}\tZ -> {2}\t Tilt -> {3}", mobileObj.Accelerometer_X, mobileObj.Accelerometer_Y, mobileObj.Accelerometer_Z, (mobileObj.Tilt != int.MinValue) ? mobileObj.Tilt.ToString() : "--"));
 
                 // Is it a valid object?
                 if (ValidMobileObject(mobileObj))
@@ -182,7 +187,7 @@ namespace Lunar.Worker
             bool result = true;
 
             // About GPS
-            if (mobileObj.Latitude == 0.0 || mobileObj.Longitude == 0)
+            if (mobileObj.Latitude == 0.0 || mobileObj.Longitude == 0.0)
                 result = false;
 
             // About OutputId

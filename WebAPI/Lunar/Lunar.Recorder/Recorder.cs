@@ -12,6 +12,7 @@ namespace Lunar.Recorder
 {
    public class Recorder
     {
+        private static int                              CaptureInterval;
         private static SQSUtils                         ProcessedQueue;
         private static MongoCollection                  Collection       { get; set; }
         private static string                           AWSAccessKey;
@@ -52,6 +53,8 @@ namespace Lunar.Recorder
 
             string errorMessage;
 
+            int countSentMessages = 0;
+
             while (true)
             {
                 List<MobileRecordObject> mobileObjs = new List<MobileRecordObject>();
@@ -59,25 +62,29 @@ namespace Lunar.Recorder
                 // Get messages from SQS
                 List<Message> messages = ProcessedQueue.GetMessagesFromQueue(out errorMessage);
 
-                
+                // Sanity check
                 if (messages == null || messages.Count == 0)
                 {
                     Console.WriteLine("Do not have messages to be save!...");
-                    Thread.Sleep(1000 * 10);
+                    Thread.Sleep(1000 * CaptureInterval);
                 }
                 else
                 {
-                    int countSentMessages = 0;
                     foreach (Message message in messages)
                     {
                         // Deserialize message
                         MobileRecordObject obj = JsonConvert.DeserializeObject<MobileRecordObject>(Compression.Decompress(message.Body));
 
                         if (obj != null)
+                        {
+                            // Info Message
+                            Console.WriteLine(String.Format(">> Reading message with:  X -> {0}\tY -> {1}\tZ -> {2}\t Tilt -> {3}", obj.Accelerometer_X, obj.Accelerometer_Y, obj.Accelerometer_Z, (obj.Tilt != int.MinValue) ? obj.Tilt.ToString() : "--"));
+
                             mobileObjs.Add(obj);
+                        }
 
                         // Trace Message
-                        if (countSentMessages % 10 == 0)
+                        if (countSentMessages % 5 == 0)
                         {
                             // Send register to database
                             SendObjectToMongoDb(mobileObjs);
@@ -94,8 +101,12 @@ namespace Lunar.Recorder
                     }
 
                     if (mobileObjs.Count != 0)
+                    {
+                        Console.WriteLine("Already sent {0} messages", countSentMessages);
+
                         // Send register to database
                         SendObjectToMongoDb(mobileObjs);
+                    }
                 }
             }
         }
@@ -149,6 +160,11 @@ namespace Lunar.Recorder
                 MongoPassword           = Utils.LoadConfigurationSetting("MongoPassword", "");
                 MongoDatabase           = Utils.LoadConfigurationSetting("MongoDatabase", "");
                 MongoCollection         = Utils.LoadConfigurationSetting("MongoCollection", "");
+
+                // Configuration Fields
+                CaptureInterval         = Int32.Parse(Utils.LoadConfigurationSetting("CaptureInterval", "30"));
+
+
             }
             catch (Exception ex)
             {
