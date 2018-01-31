@@ -1,6 +1,5 @@
 package finalcourseassignment.ufrj.android_lunar.utils;
 
-import android.content.Context;
 import android.os.Environment;
 
 import org.joda.time.DateTime;
@@ -10,12 +9,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Calendar;
-import java.util.Date;
-
-/**
- * Created by USUARIO on 08-11-17.
- */
 
 public class FileUtils
 {
@@ -42,7 +35,7 @@ public class FileUtils
     public static void saveData(File file, String data)
     {
         // Is there some problem with this data?
-        if (data.contains(";;") == true) //|| data.contains("0.0"))
+        if (data.contains(";;") == true)
             return;
 
         FileOutputStream fos = null;

@@ -50,6 +50,7 @@ import io.nlopez.smartlocation.location.providers.LocationGooglePlayServicesProv
 public class MainActivity extends AppCompatActivity implements SensorEventListener
 {
     final int TIME_TO_SAVE_DATA = 100;
+    final int LIMIT_TILT        = 30;
 
     Button btnActivate;
     Button btnPothole;
@@ -193,9 +194,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                 // Send data to SQS
                 new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
-
-                // Saving data
-               // FileUtils.SaveData(speedBumpFile, data);
 
                 // Check if it is the first click
                 // This is checked to insert or not the header in the output file
@@ -457,6 +455,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     {
         super.onResume();
 
+        // Initialize AWS
         InitializeAWSFields();
     }
 
@@ -499,13 +498,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Make sure you've waited the time to save the data
         if ((curTime - lastUpdate) > TIME_TO_SAVE_DATA)
         {
-            // Format data
-            String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0, getTilt(event.values));
+            int tilt = getTilt(event.values);
 
-            // Send data to SQS
-            new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
+            // Is the mobile device on an acceptable slope?
+            if (Math.abs(tilt) < LIMIT_TILT)
+            {
+                // Format data
+                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0, tilt);
 
-            //FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
+                // Send data to SQS
+                new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
+
+                //FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
+            }
+
 
             lastUpdate = curTime;
         }
