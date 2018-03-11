@@ -13,7 +13,9 @@ namespace Lunar.SharedLibrary.Models
 
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
+        [JsonIgnore]
         public string       _id             { get; set; }
+
         public DateTime     AcquireDate     { get; set; }
         public double       Accelerometer_X { get; set; }
         public double       Accelerometer_Y { get; set; }
@@ -21,11 +23,14 @@ namespace Lunar.SharedLibrary.Models
         public double       Latitude        { get; set; }
         public double       Longitude       { get; set; }
         public string       Address         { get; set; }
+        public string       City            { get; set; }
+        public string       State           { get; set; }
+        [JsonIgnore]
         public long         Timestamp       { get; set; }
         public int          Tilt            { get; set; }
 
         public int          Output          { get { return _Output; } set { _Output = value; OutputId = ExtractOutputIdFromInt(value); }}
-
+        [JsonIgnore]
         public string       OutputId        { get; private set; }
 
         public MobileRecordObject()
