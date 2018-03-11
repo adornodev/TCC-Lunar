@@ -21,6 +21,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.Chronometer;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -45,20 +46,16 @@ import java.util.List;
 import finalcourseassignment.ufrj.android_lunar.utils.FileUtils;
 import io.nlopez.smartlocation.OnLocationUpdatedListener;
 import io.nlopez.smartlocation.SmartLocation;
-import io.nlopez.smartlocation.location.providers.LocationGooglePlayServicesProvider;
+
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener
 {
-    final int TIME_TO_SAVE_DATA = 100;
+    final int TIME_TO_SAVE_DATA = 30;
     final int LIMIT_TILT        = 30;
 
     Button btnActivate;
     Button btnPothole;
     Button btnSpeedBump;
-
-    SensorManager sensorAccelerometerManager;
-    Handler handler;
-    private LocationGooglePlayServicesProvider provider;
 
     TextView tvAccelerometerX;
     TextView tvAccelerometerY;
@@ -66,13 +63,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     EditText et_filename;
 
+    CheckBox cbCSV;
+    CheckBox cbSQS;
+
+    SensorManager sensorAccelerometerManager;
+    Handler handler;
+
     List<TextView> listTv;
 
     // Path to save data
     String path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/TCC-Lunar/";
 
     String filename = "";
-
     File generalFile, potholeFile, speedBumpFile;
 
     long curTime;
@@ -81,24 +83,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     double latitude, longitude;
 
     boolean isEnableActivateButton;
-    boolean isFirstWrite;
-    boolean isFirstHoleWrite;
-    boolean isFirstSpeedBumpWrite;
-    boolean isFirstClickPotholeButton   = true;
-    boolean isFirstClickSpeedBumpButton = true;
+    boolean isFirstWrite                = true;
+    boolean isFirstPotholeWrite         = true;
+    boolean isFirstSpeedBumpWrite       = true;
+    boolean isEnableSQSMode             = false;
 
     Chronometer timer;
 
     boolean gps_permission, storage_permission;
 
-    private static final int REQUEST_GPS_PERMISSIONS     = 100;
-    private static final int REQUEST_STORAGE_PERMISSIONS = 101;
+    private static final int    REQUEST_GPS_PERMISSIONS     = 100;
+    private static final int    REQUEST_STORAGE_PERMISSIONS = 101;
+    private static final String DELIMITER                   = ";";
 
     OnLocationUpdatedListener locationListener;
     Runnable locationRunnable;
 
     // AWS Fields
-    AmazonSQSClient client;
+    AmazonSQSClient sqsClient;
     AWSCredentials awsCredentials;
 
     @Override
@@ -111,6 +113,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         tvAccelerometerY = (TextView) findViewById(R.id.tv_accelerometer_Y);
         tvAccelerometerZ = (TextView) findViewById(R.id.tv_accelerometer_Z);
 
+        cbCSV            = (CheckBox) findViewById(R.id.cb_csv);
+        cbSQS            = (CheckBox) findViewById(R.id.cb_sqs);
         et_filename      = (EditText) findViewById(R.id.et_filename);
         btnActivate      = (Button)   findViewById(R.id.btn_activate);
         btnPothole       = (Button)   findViewById(R.id.btn_pothole);
@@ -128,8 +132,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         handler  = new Handler();
         listTv   = new ArrayList<>();
 
-        // Initialize AWS Fields
-        InitializeAWSFields();
+        if (isEnableSQSMode)
+            // Initialize AWS Fields
+            InitializeAWSFields();
+
 
         // Checks if the SDCard is available for writing
         if (FileUtils.isExternalStorageWritable())
@@ -142,11 +148,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             generalFile.mkdir();
 
         //region Pothole button Listener
-        btnPothole.setOnClickListener(new View.OnClickListener() {
-
+        btnPothole.setOnClickListener(new View.OnClickListener()
+        {
             @Override
-            public void onClick(View v) {
-
+            public void onClick(View v)
+            {
                 // Checks if the capture process is inactive
                 if (!isEnableActivateButton)
                 {
@@ -154,20 +160,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     return;
                 }
 
-                // Format data
-                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()),1);
-                //String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),1);
+                // Checks the selected output format
+                if (isEnableSQSMode)
+                {
+                    // Format data
+                    String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 1);
 
-                // Send data to SQS
-                new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
-
-                // Saving data
-                //FileUtils.SaveData(potholeFile,data);
-
-                // Check if it is the first click
-                // This is checked to insert or not the header in the output file
-                if (isFirstClickPotholeButton)
-                    isFirstClickPotholeButton = false;
+                    // Send data to SQS
+                    new SendMessageAsyncTask().execute(new Message(sqsClient, new ArrayList<>(Arrays.asList(jsonString))));
+                }
+                else
+                {
+                    // Save data on csv file
+                    String data = formatEventLineToCSV((SystemClock.elapsedRealtime() - timer.getBase()),1);
+                    FileUtils.saveData(potholeFile, data);
+                }
 
                 // Info Message
                 Toast.makeText(MainActivity.this, getString(R.string.msg_pothole_added), Toast.LENGTH_SHORT).show();
@@ -176,29 +183,33 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //endregion
 
         //region SpeedBump Button Listener
-        btnSpeedBump.setOnClickListener(new View.OnClickListener() {
-
+        btnSpeedBump.setOnClickListener(new View.OnClickListener()
+        {
             @Override
-            public void onClick(View v) {
-
-                // Checks if the capture process is inactive
+            public void onClick(View v)
+            {
+                // Check if the capture process is inactive
                 if (!isEnableActivateButton)
                 {
                     Toast.makeText(MainActivity.this,"Precisa iniciar a captura antes!",Toast.LENGTH_SHORT).show();
                     return;
                 }
 
-                // Format data
-                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()),2);
-                //String data = formatSpeedBumpHoleLineToSaveTxtFile((SystemClock.elapsedRealtime() - timer.getBase()),2);
+                // Checks the selected output format
+                if (isEnableSQSMode)
+                {
+                    // Format data
+                    String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 2);
 
-                // Send data to SQS
-                new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
+                    // Send data to SQS
+                    new SendMessageAsyncTask().execute(new Message(sqsClient, new ArrayList<>(Arrays.asList(jsonString))));
+                }
+                else
+                {
+                    String data = formatEventLineToCSV((SystemClock.elapsedRealtime() - timer.getBase()),2);
+                    FileUtils.saveData(speedBumpFile, data);
+                }
 
-                // Check if it is the first click
-                // This is checked to insert or not the header in the output file
-                if (isFirstClickSpeedBumpButton)
-                    isFirstClickSpeedBumpButton = false;
 
                 // Info Message
                 Toast.makeText(MainActivity.this, getString(R.string.msg_speedbump_added), Toast.LENGTH_SHORT).show();
@@ -210,8 +221,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         btnActivate.setOnClickListener(new View.OnClickListener() {
 
             @Override
-            public void onClick(View v) {
-
+            public void onClick(View v)
+            {
+                // Has the user chosen the output format?
+                if (!cbCSV.isChecked() && !cbSQS.isChecked())
+                {
+                    Toast.makeText(MainActivity.this,getString(R.string.msg_must_choose_checkbox), Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 // Checks if the capture process is inactive
                 if (!isEnableActivateButton)
                 {
@@ -221,10 +238,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     // Checks if the application has the required permissions
                     if (!gps_permission || !storage_permission)
                     {
-                        Toast.makeText(MainActivity.this,"The LUNAR application can not run without having the permissions granted", Toast.LENGTH_LONG).show();
+                        Toast.makeText(MainActivity.this, getString(R.string.msg_must_accept_permissions), Toast.LENGTH_SHORT).show();
                         try
                         {
-                            Thread.sleep(3000);
+                            Thread.sleep(2000);
                         }catch(InterruptedException e) { }
 
                         MainActivity.this.finish();
@@ -241,13 +258,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                     // Create output file
                     generalFile = new File(path + filename + ".txt");
-
-                    // Setting Boolean Variables
-                    isFirstWrite                  = true;
-                    isFirstHoleWrite              = true;
-                    isFirstSpeedBumpWrite         = true;
-                    isFirstClickPotholeButton     = true;
-                    isFirstClickSpeedBumpButton   = true;
 
                     // Reset chronometer
                     timer.setBase(SystemClock.elapsedRealtime());
@@ -279,11 +289,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     // Remove the Accelerometer Sensor Register
                     sensorAccelerometerManager.unregisterListener(MainActivity.this);
 
-                    // Setting Boolean Variables
-                    isFirstWrite                  = true;
-                    isFirstHoleWrite              = true;
-                    isFirstSpeedBumpWrite         = true;
-
                     // Stop the chronometer
                     timer.stop();
                     timer.setBase(SystemClock.elapsedRealtime());
@@ -291,6 +296,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                 // Change the status of the Activate button
                 isEnableActivateButton = !isEnableActivateButton;
+
+                // Setting Boolean Variables
+                isFirstWrite                  = true;
+                isFirstPotholeWrite           = true;
+                isFirstSpeedBumpWrite         = true;
             }
         });
         //endregion
@@ -298,9 +308,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Keep the screen always on
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        locationRunnable = new Runnable() {
+        locationRunnable = new Runnable()
+        {
             @Override
-            public void run() {
+            public void run()
+            {
                 SmartLocation.with(MainActivity.this).location().start(locationListener);
                 Log.i("LUNAR",
                         String.format("Latitude %.6f, Longitude %.6f",
@@ -311,9 +323,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         };
 
-        locationListener = new OnLocationUpdatedListener() {
+        locationListener = new OnLocationUpdatedListener()
+        {
             @Override
-            public void onLocationUpdated(Location location) {
+            public void onLocationUpdated(Location location)
+            {
                 latitude  = location.getLatitude();
                 longitude = location.getLongitude();
                 handler.postDelayed(locationRunnable,500);
@@ -339,10 +353,48 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         };
 
-        client = new AmazonSQSClient(awsCredentials);
+        sqsClient = new AmazonSQSClient(awsCredentials);
     }
 
-    //region Inner Classes
+
+
+    public void onCheckboxClick(View view)
+    {
+        boolean checked = ((CheckBox) view).isChecked();
+
+        switch(view.getId())
+        {
+            case R.id.cb_csv:
+                if (checked)
+                {
+                    sqsClient = null;
+
+                    isEnableSQSMode = false;
+                    cbSQS.setChecked(false);
+                }
+
+                break;
+
+            case R.id.cb_sqs:
+                if (checked)
+                {
+                    isEnableSQSMode = true;
+                    cbCSV.setChecked(false);
+
+                    // Initialize AWS Fields
+                    InitializeAWSFields();
+                }
+                else
+                {
+                    sqsClient       = null;
+                    isEnableSQSMode = false;
+                }
+
+                break;
+        }
+    }
+
+    //region Task Classes
     private class SendMessageAsyncTask extends AsyncTask<Message, Void, Integer>{
 
         @Override
@@ -367,7 +419,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         @Override
         protected void onPostExecute(Integer numberOfMessages){
-            Log.i("PDG_LUNAR", "Processed Message: " + numberOfMessages);
+            Log.d("PDG_LUNAR", "Processed Message: " + numberOfMessages);
         }
     }
 
@@ -383,9 +435,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
     //endregion
 
-    private void getPermissions() {
-
-
+    private void getPermissions()
+    {
         // Check if location permission wasn't granted
         if ((ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED))
         {
@@ -455,8 +506,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     {
         super.onResume();
 
-        // Initialize AWS
-        InitializeAWSFields();
+        if (isEnableSQSMode)
+            // Initialize AWS
+            InitializeAWSFields();
     }
 
     @Override
@@ -501,18 +553,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             int tilt = getTilt(event.values);
 
             // Is the mobile device on an acceptable slope?
-            if (Math.abs(tilt) < LIMIT_TILT)
+            if (Math.abs(tilt) > LIMIT_TILT)
             {
-                // Format data
-                String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0, tilt);
 
-                // Send data to SQS
-                new SendMessageAsyncTask().execute(new Message(client, new ArrayList<>(Arrays.asList(jsonString))));
+                if (isEnableSQSMode)
+                {
+                    // Format data
+                    String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0, tilt);
 
-                //FileUtils.SaveData(generalFile, formatLineToSaveTxtFile(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
+                    // Send data to SQS
+                    new SendMessageAsyncTask().execute(new Message(sqsClient, new ArrayList<>(Arrays.asList(jsonString))));
+
+                }
+                else
+                {
+                    FileUtils.saveData(generalFile, formatLineToCSV(listTv, tilt, (SystemClock.elapsedRealtime() - timer.getBase())));
+                }
             }
-
-
             lastUpdate = curTime;
         }
     }
@@ -529,7 +586,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return tilt;
     }
 
-    public String formatLineToSaveTxtFile(List<TextView> listTv, int tilt, long timestamp)
+    public String formatLineToCSV(List<TextView> listTv, int tilt, long timestamp)
     {
         String data;
         StringBuilder line = new StringBuilder();
@@ -538,7 +595,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // Add Header
         if (isFirstWrite)
         {
-            line.append("accelerometer_X;accelerometer_Y;accelerometer_Z;latitude;longitude;tilt;timestamp;datetime\n");
+            line.append("accelerometer_X" + DELIMITER +
+                        "accelerometer_Y" + DELIMITER +
+                        "accelerometer_Z" + DELIMITER +
+                        "latitude"        + DELIMITER +
+                        "longitude"       + DELIMITER +
+                        "tilt"            + DELIMITER +
+                        "timestamp"       + DELIMITER +
+                        "datetime\n");
+
             isFirstWrite = false;
         }
 
@@ -552,17 +617,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 data = new BigDecimal(data).toString();
 
             line.append(data);
-            line.append(";");
+            line.append(DELIMITER);
         }
 
         line.append(String.valueOf(latitude));
-        line.append(";");
+        line.append(DELIMITER);
         line.append(String.valueOf(longitude));
-        line.append(";");
+        line.append(DELIMITER);
         line.append(String.valueOf(tilt));
-        line.append(";");
+        line.append(DELIMITER);
         line.append(timestamp);
-        line.append(";");
+        line.append(DELIMITER);
         line.append(new DateTime(DateTimeZone.UTC).toString());
 
         return line.toString();
@@ -583,8 +648,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         JSONObject   jsonobj        = new JSONObject();
         List<String> accelerometers = new ArrayList<>();
 
+        float[] values = new float[3];
         try
         {
+            int counter = 0;
             // Iterate over all TextViews (accelerometers)
             for (TextView tV : listTv)
             {
@@ -594,20 +661,30 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 if (data.contains("E") == true)
                     data = new BigDecimal(data).toString();
 
+                values[counter] = Float.parseFloat(data);
                 accelerometers.add(data);
+
+                counter++;
             }
 
             // Add into json object if i have all values
             if (accelerometers.size() == 3)
             {
-                jsonobj.put("Accelerometer_X", accelerometers.get(0));
-                jsonobj.put("Accelerometer_Y", accelerometers.get(1));
-                jsonobj.put("Accelerometer_Z", accelerometers.get(2));
-                jsonobj.put("Latitude"       , latitude);
-                jsonobj.put("Longitude"      , longitude);
-                jsonobj.put("Timestamp"      , time);
-                jsonobj.put("AcquireDate"    , new DateTime(DateTimeZone.UTC));
-                jsonobj.put("Output"         , id);
+                int tilt = getTilt(values);
+
+                // Is the mobile device on an acceptable slope?
+                if (Math.abs(tilt) < LIMIT_TILT)
+                {
+                    jsonobj.put("Accelerometer_X", accelerometers.get(0));
+                    jsonobj.put("Accelerometer_Y", accelerometers.get(1));
+                    jsonobj.put("Accelerometer_Z", accelerometers.get(2));
+                    jsonobj.put("Latitude"       , latitude);
+                    jsonobj.put("Longitude"      , longitude);
+                    jsonobj.put("Timestamp"      , time);
+                    jsonobj.put("Tilt"           , tilt);
+                    jsonobj.put("AcquireDate"    , new DateTime(DateTimeZone.UTC));
+                    jsonobj.put("Output"         , id);
+                }
             }
 
         }
@@ -674,31 +751,31 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    public String formatSpeedBumpHoleLineToSaveTxtFile(long timer, int id) {
-
-        //id -> 0 Pothole
-        //id -> 1 SpeedBump
+    public String formatEventLineToCSV(long timer, int id)
+    {
+        //id -> 1 Pothole
+        //id -> 2 SpeedBump
 
         StringBuilder line = new StringBuilder();
 
-        if (id == 0 && isFirstHoleWrite)
+        if (id == 1 && isFirstPotholeWrite)
         {
             line.append("latitude;longitude;timestamp;datetime\n");
-            isFirstHoleWrite = false;
+            isFirstPotholeWrite = false;
         }
 
-        if (id == 1 && isFirstSpeedBumpWrite)
+        if (id == 2 && isFirstSpeedBumpWrite)
         {
             line.append("latitude;longitude;timestamp;datetime\n");
             isFirstSpeedBumpWrite = false;
         }
 
         line.append(String.valueOf(latitude));
-        line.append(";");
+        line.append(DELIMITER);
         line.append(String.valueOf(longitude));
-        line.append(";");
+        line.append(DELIMITER);
         line.append(timer);
-        line.append(";");
+        line.append(DELIMITER);
         line.append(new DateTime(DateTimeZone.UTC).toString());
 
         return line.toString();

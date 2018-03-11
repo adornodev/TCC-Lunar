@@ -7,12 +7,17 @@
     <string name="btn_speedbump">Quebra-Mola</string>
     <string name="btn_activate">Ativar</string>
     <string name="et_output_filename">Nome do Arquivo s/ Ext</string>
+    <string name="et_output_filename">Nome do Arq s/ Ext</string>
     <string name="tv_accelerometer">Acelerômetro</string>
     <string name="tv_output_filename">Nome Arquivo</string>
     <string name="text_accept_permission">É necessário aceitar para o aplicativo funcionar corretamente.</string>
+    <string name="tv_format_output">Formato de Saída</string>
+    <string name="text_accept_permission">É necessário aceitar para o aplicativo funcionar corretamente</string>
     <string name="msg_pothole_added">Buraco Adicionado</string>
     <string name="msg_speedbump_added">Quebra-Mola Adicionado</string>
 
+    <string name="msg_must_choose_checkbox">Você é obrigado a escolher um dos formatos de saída</string>
+    <string name="msg_must_accept_permissions">A aplicação Lunar não pode rodar sem as permissões garantidas</string>
     <!-- KEYS -->
     <string name="aws_access_key"></string>
     <string name="aws_secret_key"></string>

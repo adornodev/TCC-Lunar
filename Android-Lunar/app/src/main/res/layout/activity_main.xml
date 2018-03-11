@@ -12,7 +12,7 @@
         android:gravity="center"
         android:id="@+id/chronometer"
         android:textSize="20dp"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="10dp"
         android:textStyle="bold" />
 
     <TextView
@@ -21,13 +21,13 @@
         android:gravity="center"
         android:text="@string/tv_accelerometer"
         android:textSize="20dp"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="10dp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="10dp"
         android:orientation="horizontal">
 
         <TextView
@@ -73,27 +73,45 @@
         android:textColor="@android:color/white"
         android:background="@android:color/background_dark"/>
 
+    <TextView
+        android:id="@+id/tv_filename"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="20sp"
+        android:textColor="@android:color/black"
+        android:gravity="left"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="5dp"
+        android:text="@string/tv_format_output"/>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="10dp"
         android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/tv_filename"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:textSize="30sp"
+        <CheckBox
+            android:id="@+id/cb_sqs"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@android:color/black"
-            android:gravity="left"
-            android:layout_marginLeft="10dp"
-            android:text="@string/tv_output_filename"/>
+            android:checked="false"
+            android:text="SQS"
+            android:onClick="onCheckboxClick"/>
+
+        <CheckBox
+            android:id="@+id/cb_csv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:text="CSV"
+            android:onClick="onCheckboxClick"/>
 
         <EditText
             android:id="@+id/et_filename"
             android:layout_width="0dp"
             android:layout_weight="1"
+            android:layout_marginLeft="10dp"
             android:layout_height="wrap_content"
             android:textColor="@android:color/black"
             android:gravity="center"
@@ -111,7 +129,6 @@
             android:id="@+id/btn_pothole"
             android:layout_width="match_parent"
             android:layout_height="70dp"
-            android:layout_marginTop="30sp"
             android:minHeight="@dimen/demo_button_min_height"
             android:minWidth="@dimen/demo_button_min_width"
             android:text="@string/btn_pothole"

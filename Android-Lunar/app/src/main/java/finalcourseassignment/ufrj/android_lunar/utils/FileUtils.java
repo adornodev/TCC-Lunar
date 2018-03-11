@@ -1,6 +1,7 @@
 package finalcourseassignment.ufrj.android_lunar.utils;
 
 import android.os.Environment;
+import android.util.Log;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -12,6 +13,8 @@ import java.io.IOException;
 
 public class FileUtils
 {
+    public static String delimiter = "_";
+
     public static boolean isExternalStorageWritable()
     {
         String state = Environment.getExternalStorageState();
@@ -49,6 +52,13 @@ public class FileUtils
             e.printStackTrace();
         }
 
+        // Sanity check
+        if (fos == null)
+        {
+            Log.e("LUNAR", "FileOutputStream is null. File: " + file.getAbsolutePath());
+            return;
+        }
+
         try
         {
             fos.write(data.getBytes());
@@ -72,21 +82,22 @@ public class FileUtils
     }
 
 
-    public static String getDateTimeSystem() {
+    public static String getDateTimeSystem()
+    {
 
         DateTime      dt     = new DateTime(DateTimeZone.UTC);
         StringBuilder result = new StringBuilder();
 
         result.append(String.valueOf(dt.getYear()));
-        result.append("_");
+        result.append(delimiter);
         result.append(String.valueOf(dt.getMonthOfYear()));
-        result.append("_");
+        result.append(delimiter);
         result.append(String.valueOf(dt.getDayOfMonth()));
-        result.append("_");
+        result.append(delimiter);
         result.append(String.valueOf(dt.getHourOfDay()));
-        result.append("_");
+        result.append(delimiter);
         result.append(String.valueOf(dt.getMinuteOfHour()));
-        result.append("_");
+        result.append(delimiter);
         result.append(String.valueOf(dt.getSecondOfMinute()));
 
         return result.toString();
