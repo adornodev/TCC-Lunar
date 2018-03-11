@@ -11,13 +11,13 @@ namespace Lunar.SharedLibrary.Models
     public class GoogleReverseGeocondingObject
     {
 
-        public List<Result> results         { get; set; }
-        public string       status          { get; set; }
+        public List<Result> results             { get; set; }
+        public string       status              { get; set; }
 
         [BsonIgnoreExtraElements]
         public class Result
         {
-            public string formatted_address { get; set; }
+            public string   formatted_address   { get; set; }
         }
 
     }
