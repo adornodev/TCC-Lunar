@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using WebUtilsLib;
@@ -27,10 +28,12 @@ namespace Lunar.Worker
         private static string               GoogleReverseGeocodingKey;
         private static string               GoogleReverseGeocodingUrlTemplate = "https://maps.googleapis.com/maps/api/geocode/json?latlng={0},{1}&key={2}&language=pt-BR";
         
+        private static Regex                _cityStateRegex = new Regex(@",\s\d{1,}\s-\s([^,]*),\s([^-]*)\s-\s\D{2}", RegexOptions.Compiled);
+
         static void Main(string[] args)
         {
             // Load config
-            Console.WriteLine("Loading config file");
+            Console.WriteLine("Loading config file...");
             if (!InitAppConfigValues())
             {
                 Console.Read();
@@ -40,7 +43,7 @@ namespace Lunar.Worker
             // Initialize AWS Services
             if (!InitAWSServices())
             {
-                Console.WriteLine("Error to initialize AWS services.");
+                Console.WriteLine("Error to initialize AWS services!");
                 Console.Read();
                 Environment.Exit(-102);
             }
@@ -53,7 +56,7 @@ namespace Lunar.Worker
 
                 if (messages == null || messages.Count == 0)
                 {
-                    Console.WriteLine("Do not have messages to be process!...");
+                    Console.WriteLine("Do not have messages to be process...");
                     Thread.Sleep(1000 * CaptureInterval);
                 }
                 else
@@ -148,7 +151,7 @@ namespace Lunar.Worker
                 if (!ProcessedQueue.OpenQueue(1, out processederrormessage))
                     result = false;
             }
-            catch (Exception ex) { result = false; Console.WriteLine("ErrorMessage:{1} ... {2} \t {3}", tobeprocessederrormessage, processederrormessage, ex.Message); }
+            catch (Exception ex) { result = false; Console.WriteLine("Error Message: {0} ... {1}\t {2}", tobeprocessederrormessage, processederrormessage, ex.Message); }
 
             return result;
         }
@@ -158,16 +161,16 @@ namespace Lunar.Worker
 
             try
             {
-                // Decompress and Deserialize message
+                // Deserialize message
                 MobileRecordObject mobileObj = JsonConvert.DeserializeObject<MobileRecordObject>(message.Body);
 
                 // Info Message
-                Console.WriteLine(String.Format(">> Processing message with:  X -> {0}\tY -> {1}\tZ -> {2}\t Tilt -> {3}", mobileObj.Accelerometer_X, mobileObj.Accelerometer_Y, mobileObj.Accelerometer_Z, (mobileObj.Tilt != int.MinValue) ? mobileObj.Tilt.ToString() : "--"));
+                Console.WriteLine(String.Format(">> Processing message with:  X -> {0}\tY -> {1}\tZ -> {2}\t Tilt -> {3}\t Output -> {4}", mobileObj.Accelerometer_X, mobileObj.Accelerometer_Y, mobileObj.Accelerometer_Z, (mobileObj.Tilt != int.MinValue) ? mobileObj.Tilt.ToString() : "--", mobileObj.Output));
 
                 // Is it a valid object?
                 if (ValidMobileObject(mobileObj))
                 {
-                    if (mobileObj.Latitude != 0.0 && mobileObj.Longitude != 0.0 && mobileObj.Output != 0)
+                    if (mobileObj.Output != 0)
                         // Extract Address from Google Reverse Geocoding API
                         ExtractAddressFromGPSCoordinates(ref mobileObj);
                 }
@@ -186,16 +189,16 @@ namespace Lunar.Worker
         {
             bool result = true;
 
-            // About GPS
+            // GPS Filter
             if (mobileObj.Latitude == 0.0 || mobileObj.Longitude == 0.0)
                 result = false;
 
-            // About OutputId
+            // OutputId Filter
             if (mobileObj.OutputId.ToUpper().Equals("UNKNOWN"))
                 result = false;
 
-            // About Tilt
-            if (mobileObj.Tilt != int.MinValue && Math.Abs(mobileObj.Tilt) > Constants.LIMIT_TILT_PHONE)
+            // Tilt Filter
+            if (mobileObj.Tilt != int.MinValue && Math.Abs(mobileObj.Tilt) < Constants.LIMIT_TILT_PHONE)
                 result = false;
 
             return result;
@@ -216,7 +219,7 @@ namespace Lunar.Worker
             // GET Request
             string jsonstr = Get(ref client, finalUrl);
 
-            // Checking if jsonstr is valid
+            // Check if jsonstr is valid
             if (String.IsNullOrEmpty(jsonstr))
                 return;
 
@@ -224,15 +227,24 @@ namespace Lunar.Worker
             {
                 GoogleReverseGeocondingObject rcObj = JsonConvert.DeserializeObject<GoogleReverseGeocondingObject>(jsonstr);
 
+                // Is it a valid response?
                 if (rcObj.status.ToUpper().Equals("OK") && rcObj.results != null && rcObj.results.Count >= 1)
+                {
                     mobileObj.Address = rcObj.results[0].formatted_address;
+
+                    Match match = _cityStateRegex.Match(mobileObj.Address);
+                    if (match.Success && match.Groups.Count == 3)
+                    {
+                        mobileObj.City  = match.Groups[1].Value.Trim().ToLower();
+                        mobileObj.State = match.Groups[2].Value.Trim().ToLower();
+                    }
+                }
 
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error to deserialize GoogleReverseGeocondingObject. Message: {0}", ex.Message);
+                Console.WriteLine("Error to deserialize/parser GoogleReverseGeocondingObject. Message: {0}", ex.Message);
             }
-
         }
 
 

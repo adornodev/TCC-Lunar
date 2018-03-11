@@ -65,7 +65,7 @@ namespace Lunar.Api.Controllers
             }
             catch (Exception ex)
             {
-                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Fail to get records from Database. Check the documentation to see how the parameter works. Message: " + ex.Message);
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Fail to get records from Database. Check the documentation to know how the parameters works. Message: " + ex.Message);
             }
 
             return Request.CreateResponse(HttpStatusCode.OK, results);
@@ -77,14 +77,14 @@ namespace Lunar.Api.Controllers
             IMongoQuery query = null;
 
             // "numberOfDay" as parameter
-            if (queryObject.Output == int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue)
+            if (queryObject.Output == int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
             {
                 success = true;
                 query   = Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays));
             }
             
             // "output" as parameter
-            else if (queryObject.Output != int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue)
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
             {
                 if (queryObject.Output >= 0 && queryObject.Output <= 2)
                 {
@@ -93,20 +93,122 @@ namespace Lunar.Api.Controllers
                 }
             }
 
+            // "city" as parameter
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && !String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                success = true;
+                query = Query.And(Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("City", queryObject.City.ToLower()));
+            }
+
+            // "state" as parameter
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && String.IsNullOrWhiteSpace(queryObject.City) && !String.IsNullOrWhiteSpace(queryObject.State))
+            {
+                success = true;
+                query = Query.And(Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("State", queryObject.State.ToLower()));
+            }
+
+            // "state" and "city" as parameters
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.City) && !String.IsNullOrWhiteSpace(queryObject.State))
+            {
+                success = true;
+                query = Query.And(Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("State", queryObject.State.ToLower()), Query.EQ("City", queryObject.City.ToLower()));
+            }
+
             // "latitude" and "longitude" as parameters
-            else if (queryObject.Output == int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue)
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
             {
                 success = true;
                 query   = Query.And(Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)));
             }
 
+            // "city", "latitude" and "longitude" as parameters
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.City) && String.IsNullOrWhiteSpace(queryObject.State))
+            {
+                success = true;
+                query = Query.And(Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("City", queryObject.City.ToLower()));
+            }
+
+            // "state", "latitude" and "longitude" as parameters
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                success = true;
+                query = Query.And(Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("State", queryObject.State.ToLower()));
+            }
+
+            // "city", "state", "latitude" and "longitude" as parameters
+            else if (queryObject.Output == int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.State) && !String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                success = true;
+                query = Query.And(Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("State", queryObject.State.ToLower()), Query.EQ("City", queryObject.City.ToLower()));
+            }
+
             // "output", "latitude" and "longitude" as parameters
-            else if (queryObject.Output != int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue)
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
             {
                 if (queryObject.Output >= 0 && queryObject.Output <= 2)
                 {
                     success = true;
                     query   = Query.And(Query.EQ("Output", queryObject.Output), Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)));
+                }
+            }
+
+            // "state, "output", "latitude" and "longitude" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query = Query.And(Query.EQ("Output", queryObject.Output), Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("State", queryObject.State.ToLower()));
+                }
+            }
+
+            // "city, "output", "latitude" and "longitude" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && !String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query = Query.And(Query.EQ("Output", queryObject.Output), Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("City", queryObject.City.ToLower()));
+                }
+            }
+
+            // "state", "city", "output", "latitude" and "longitude" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude != Double.MinValue && queryObject.Longitude != Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.State) && !String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query = Query.And(Query.EQ("Output", queryObject.Output), Query.EQ("Latitude", queryObject.Latitude), Query.EQ("Longitude", queryObject.Longitude), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("City", queryObject.City.ToLower()), Query.EQ("State", queryObject.State.ToLower()));
+                }
+            }
+
+            // "state", "city" and "output" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.State) && !String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query = Query.And(Query.EQ("Output", queryObject.Output), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("City", queryObject.City.ToLower()), Query.EQ("State", queryObject.State.ToLower()));
+                }
+            }
+
+            // "state" and "output" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && !String.IsNullOrWhiteSpace(queryObject.State) && String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query = Query.And(Query.EQ("Output", queryObject.Output), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("State", queryObject.State.ToLower()));
+                }
+            }
+
+            // "city" and "output" as parameters
+            else if (queryObject.Output != int.MinValue && queryObject.Latitude == Double.MinValue && queryObject.Longitude == Double.MinValue && String.IsNullOrWhiteSpace(queryObject.State) && !String.IsNullOrWhiteSpace(queryObject.City))
+            {
+                if (queryObject.Output >= 0 && queryObject.Output <= 2)
+                {
+                    success = true;
+                    query = Query.And(Query.EQ("Output", queryObject.Output), Query.GTE("AcquireDate", DateTime.UtcNow.AddDays(-1 * queryObject.NumberOfDays)), Query.EQ("City", queryObject.City.ToLower()));
                 }
             }
 

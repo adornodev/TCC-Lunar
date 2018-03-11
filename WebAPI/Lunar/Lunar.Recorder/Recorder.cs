@@ -27,7 +27,7 @@ namespace Lunar.Recorder
         public static void Main(string[] args)
         {
             // Load config
-            Console.WriteLine("Loading config file");
+            Console.WriteLine("Loading config file...");
             if (!InitAppConfigValues())
             {
                 Console.Read();
@@ -37,7 +37,7 @@ namespace Lunar.Recorder
             // Initialize AWS Services
             if (!InitAWSServices())
             {
-                Console.WriteLine("Error to initialize AWS services.");
+                Console.WriteLine("Error to initialize AWS services!");
                 Console.Read();
                 Environment.Exit(-102);
             }
@@ -45,7 +45,7 @@ namespace Lunar.Recorder
             // Initialize MongoDB
             if (!InitMongoDb())
             {
-                Console.WriteLine("Error to initialize MongoDb. Please, check appConfig values.");
+                Console.WriteLine("Error to initialize MongoDb! Please, you must check appConfig values.");
                 Console.Read();
                 Environment.Exit(-103);
 
@@ -65,20 +65,20 @@ namespace Lunar.Recorder
                 // Sanity check
                 if (messages == null || messages.Count == 0)
                 {
-                    Console.WriteLine("Do not have messages to be save!...");
+                    Console.WriteLine("Do not have messages to be stored...");
                     Thread.Sleep(1000 * CaptureInterval);
                 }
                 else
                 {
                     foreach (Message message in messages)
                     {
-                        // Deserialize message
+                        // Deserialize and Decompress message
                         MobileRecordObject obj = JsonConvert.DeserializeObject<MobileRecordObject>(Compression.Decompress(message.Body));
 
                         if (obj != null)
                         {
                             // Info Message
-                            Console.WriteLine(String.Format(">> Reading message with:  X -> {0}\tY -> {1}\tZ -> {2}\t Tilt -> {3}", obj.Accelerometer_X, obj.Accelerometer_Y, obj.Accelerometer_Z, (obj.Tilt != int.MinValue) ? obj.Tilt.ToString() : "--"));
+                            Console.WriteLine(String.Format(">> Reading message with:  X -> {0}\tY -> {1}\tZ -> {2}\t Tilt -> {3}\t Output -> {4}", obj.Accelerometer_X, obj.Accelerometer_Y, obj.Accelerometer_Z, (obj.Tilt != int.MinValue) ? obj.Tilt.ToString() : "--", obj.Output));
 
                             mobileObjs.Add(obj);
                         }
@@ -168,7 +168,7 @@ namespace Lunar.Recorder
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error while parsing app config values. Error Message: {0}", ex.Message);
+                Console.WriteLine("Error while parsing app config values! Error Message: {0}", ex.Message);
                 return false;
             }
 
@@ -187,7 +187,7 @@ namespace Lunar.Recorder
                 if (!ProcessedQueue.OpenQueue(1, out processederrormessage))
                     result = false;
             }
-            catch (Exception ex) { result = false; Console.WriteLine("ErrorMessage: {1} \t {3}", processederrormessage, ex.Message); }
+            catch (Exception ex) { result = false; Console.WriteLine("Error Message: {0}\t {1}", processederrormessage, ex.Message); }
 
             return result;
 
