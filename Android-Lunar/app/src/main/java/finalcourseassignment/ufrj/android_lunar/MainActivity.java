@@ -171,9 +171,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 }
                 else
                 {
+                    long timestamp = (SystemClock.elapsedRealtime() - timer.getBase());
+
                     // Save data on csv file
-                    String data = formatEventLineToCSV((SystemClock.elapsedRealtime() - timer.getBase()),1);
+                    String data = formatEventLineToCSV(timestamp,1);
+
                     FileUtils.saveData(potholeFile, data);
+
+                    //FileUtils.saveData(generalFile, formatLineToCSV(listTv, Integer.MIN_VALUE, timestamp));
                 }
 
                 // Info Message
@@ -206,8 +211,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 }
                 else
                 {
-                    String data = formatEventLineToCSV((SystemClock.elapsedRealtime() - timer.getBase()),2);
+                    long timestamp = (SystemClock.elapsedRealtime() - timer.getBase());
+                    String data    = formatEventLineToCSV(timestamp,2);
+
                     FileUtils.saveData(speedBumpFile, data);
+                    //FileUtils.saveData(generalFile, formatLineToCSV(listTv, Integer.MIN_VALUE, timestamp));
                 }
 
 
@@ -559,7 +567,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 if (isEnableSQSMode)
                 {
                     // Format data
-                    String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0, tilt);
+                    String jsonString = formatToJsonString((SystemClock.elapsedRealtime() - timer.getBase()), 0);
 
                     // Send data to SQS
                     new SendMessageAsyncTask().execute(new Message(sqsClient, new ArrayList<>(Arrays.asList(jsonString))));
@@ -607,6 +615,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             isFirstWrite = false;
         }
 
+        float[] values = new float[3];
+        int counter = 0;
+
         // Iterate over all TextViews
         for (TextView tV : listTv)
         {
@@ -616,6 +627,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (data.contains("E") == true)
                 data = new BigDecimal(data).toString();
 
+            values[counter] = Float.parseFloat(data);
+            counter++;
+
             line.append(data);
             line.append(DELIMITER);
         }
@@ -624,7 +638,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         line.append(DELIMITER);
         line.append(String.valueOf(longitude));
         line.append(DELIMITER);
-        line.append(String.valueOf(tilt));
+
+        if (tilt == Integer.MIN_VALUE)
+            line.append(String.valueOf(getTilt(values)));
+        else
+            line.append(String.valueOf(tilt));
+
         line.append(DELIMITER);
         line.append(timestamp);
         line.append(DELIMITER);
@@ -698,58 +717,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    public String formatToJsonString(long time, int id, int tilt)
-    {
-        //id -> 0 No Event
-        //id -> 1 Pothole
-        //id -> 2 SpeedBump
-
-        listTv.clear();
-        listTv.add(tvAccelerometerX);
-        listTv.add(tvAccelerometerY);
-        listTv.add(tvAccelerometerZ);
-
-        JSONObject   jsonobj        = new JSONObject();
-        List<String> accelerometers = new ArrayList<>();
-
-        try
-        {
-            // Iterate over all TextViews (accelerometers)
-            for (TextView tV : listTv)
-            {
-                String data = tV.getText().toString().substring(2).trim();
-
-                // Check if the number is in scientific formatting. If so, it will have to be converted
-                if (data.contains("E") == true)
-                    data = new BigDecimal(data).toString();
-
-                accelerometers.add(data);
-            }
-
-            // Add into json object if i have all values
-            if (accelerometers.size() == 3)
-            {
-                jsonobj.put("Accelerometer_X", accelerometers.get(0));
-                jsonobj.put("Accelerometer_Y", accelerometers.get(1));
-                jsonobj.put("Accelerometer_Z", accelerometers.get(2));
-                jsonobj.put("Latitude"       , latitude);
-                jsonobj.put("Longitude"      , longitude);
-                jsonobj.put("Timestamp"      , time);
-                jsonobj.put("Tilt"           , tilt);
-                jsonobj.put("AcquireDate"    , new DateTime(DateTimeZone.UTC));
-                jsonobj.put("Output"         , id);
-            }
-
-        }
-        catch (JSONException e)
-        {
-            e.printStackTrace();
-            Log.e("LUNAR","Error to build json object. Message: " + e.getMessage());
-        }
-
-        return jsonobj.toString();
-
-    }
 
     public String formatEventLineToCSV(long timer, int id)
     {
