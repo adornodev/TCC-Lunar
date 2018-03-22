@@ -19,21 +19,27 @@ namespace Lunar.Worker
     public class Worker
     {
         private static int                  CaptureInterval;
+        private static bool                 ShouldUseMachineLearning;
+
         private static string               AWSAccessKey;
         private static string               AWSSecretKey;
         private static string               ToBeProcessedQueueName;
         private static string               ProcessedQueueName;
+        private static string               ToBeClassifiedQueueName;
         private static SQSUtils             ToBeProcessedQueue;
         private static SQSUtils             ProcessedQueue;
+        private static SQSUtils             ToBeClassifiedQueue;
+
         private static string               GoogleReverseGeocodingKey;
         private static string               GoogleReverseGeocodingUrlTemplate = "https://maps.googleapis.com/maps/api/geocode/json?latlng={0},{1}&key={2}&language=pt-BR";
         
-        private static Regex                _cityStateRegex = new Regex(@",\s\d{1,}\s-\s([^,]*),\s([^-]*)\s-\s\D{2}", RegexOptions.Compiled);
-
+        private static Regex                CityStateRegex  = new Regex(@",\s\d{1,}\s-\s([^,]*),\s([^-]*)\s-\s\D{2}", RegexOptions.Compiled);
+        private static Regex                CityStateRegex2 = new Regex(@",\s([^-]*)\s-\s(\D{2}),\s", RegexOptions.Compiled);
+        
         static void Main(string[] args)
         {
             // Load config
-            Console.WriteLine("Loading config file...");
+            Console.WriteLine(">> Loading config file...");
             if (!InitAppConfigValues())
             {
                 Console.Read();
@@ -43,7 +49,7 @@ namespace Lunar.Worker
             // Initialize AWS Services
             if (!InitAWSServices())
             {
-                Console.WriteLine("Error to initialize AWS services!");
+                Console.WriteLine(">> Error to initialize AWS services!");
                 Console.Read();
                 Environment.Exit(-102);
             }
@@ -56,7 +62,7 @@ namespace Lunar.Worker
 
                 if (messages == null || messages.Count == 0)
                 {
-                    Console.WriteLine("Do not have messages to be process...");
+                    Console.WriteLine(">> Do not have messages to be process...");
                     Thread.Sleep(1000 * CaptureInterval);
                 }
                 else
@@ -69,23 +75,43 @@ namespace Lunar.Worker
                    
                         if (obj != null)
                         {
+                            countProcessedMessages++;
+
                             // Send to ProcessedQueue
                             SendToProcessedQueue(obj);
 
+
+                            if (ShouldUseMachineLearning)
+                                // Send to ToBeClassifiedQueue
+                                Send2ToBeClassifiedQueue(obj);
+                                
                             // Trace Message
                             if (countProcessedMessages % 10 == 0)
-                                Console.WriteLine("Already processed {0} messages", (++countProcessedMessages));
+                                Console.WriteLine(">> Already processed {0} messages", countProcessedMessages);
                         }
 
                         
                         // Delete processed message
                         if(!ToBeProcessedQueue.DeleteMessage(message, out errorMessage))
                         {
-                            Console.WriteLine("Error to delete message. Error Message:{0}", errorMessage);
+                            Console.WriteLine(">> Error to delete message. Error Message: {0}", errorMessage);
                         }
                     }
                 }
             }   
+        }
+
+        private static void Send2ToBeClassifiedQueue(MobileRecordObject obj)
+        {
+            string errorMessage = String.Empty;
+
+            string jsonstr = obj.AsJSONString();
+
+            // Add obj to queue
+            if (!ToBeClassifiedQueue.EnqueueMessage(jsonstr, out errorMessage))
+            {
+                Console.WriteLine(">> Error to enqueue message on ToBeClassified Queue. Error Message:{0}", errorMessage);
+            }
         }
 
         private static void SendToProcessedQueue(MobileRecordObject obj)
@@ -98,7 +124,7 @@ namespace Lunar.Worker
             // Add obj to queue
             if (!ProcessedQueue.EnqueueMessage(jsonstr, out errorMessage))
             {
-                Console.WriteLine("Error to enqueue message. Error Message:{0}", errorMessage);
+                Console.WriteLine(">> Error to enqueue message on ProcessedQueue Queue. Error Message:{0}", errorMessage);
             }
         }
 
@@ -113,9 +139,11 @@ namespace Lunar.Worker
                 // SQS                                        
                 ToBeProcessedQueueName      = Utils.LoadConfigurationSetting("ToBeProcessedQueueName", "");
                 ProcessedQueueName          = Utils.LoadConfigurationSetting("ProcessedQueueName", "");
+                ToBeClassifiedQueueName     = Utils.LoadConfigurationSetting("ToBeClassifiedQueueName", "");
 
-                // Initialize SQS object    
+                // Initialize SQS objects  
                 ToBeProcessedQueue          = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeProcessedQueueName);
+                ToBeClassifiedQueue         = new SQSUtils(AWSAccessKey,AWSSecretKey, ToBeClassifiedQueueName);
                 ProcessedQueue              = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
 
                 // Reverse Geocoding Key
@@ -123,11 +151,12 @@ namespace Lunar.Worker
 
                 // Configuration Fields
                 CaptureInterval             = Int32.Parse(Utils.LoadConfigurationSetting("CaptureInterval", "30"));
+                ShouldUseMachineLearning    = Boolean.Parse(Utils.LoadConfigurationSetting("ShouldUseMachineLearning", "true"));
 
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error while parsing app config values. Error Message: {0}", ex.Message);
+                Console.WriteLine(">> Error while parsing app config values. Error Message: {0}", ex.Message);
                 return false;
             }
 
@@ -151,7 +180,7 @@ namespace Lunar.Worker
                 if (!ProcessedQueue.OpenQueue(1, out processederrormessage))
                     result = false;
             }
-            catch (Exception ex) { result = false; Console.WriteLine("Error Message: {0} ... {1}\t {2}", tobeprocessederrormessage, processederrormessage, ex.Message); }
+            catch (Exception ex) { result = false; Console.WriteLine(">> Error Message: {0} ... {1}\t {2}", tobeprocessederrormessage, processederrormessage, ex.Message); }
 
             return result;
         }
@@ -170,7 +199,7 @@ namespace Lunar.Worker
                 // Is it a valid object?
                 if (ValidMobileObject(mobileObj))
                 {
-                    if (mobileObj.Output != 0)
+                    //if (mobileObj.Output != 0)
                         // Extract Address from Google Reverse Geocoding API
                         ExtractAddressFromGPSCoordinates(ref mobileObj);
                 }
@@ -180,7 +209,7 @@ namespace Lunar.Worker
             }
             catch (Exception ex)
             {
-                Console.WriteLine(String.Format("Error while treating message from {0}: {1}", ToBeProcessedQueueName, ex.Message));
+                Console.WriteLine(String.Format(">> Error while treating message from {0}: {1}", ToBeProcessedQueueName, ex.Message));
                 return null;
             }
         }
@@ -232,7 +261,11 @@ namespace Lunar.Worker
                 {
                     mobileObj.Address = rcObj.results[0].formatted_address;
 
-                    Match match = _cityStateRegex.Match(mobileObj.Address);
+                    Match match = CityStateRegex.Match(mobileObj.Address);
+
+                    if (!match.Success)
+                        match = CityStateRegex2.Match(mobileObj.Address);
+
                     if (match.Success && match.Groups.Count == 3)
                     {
                         mobileObj.City  = match.Groups[1].Value.Trim().ToLower();
