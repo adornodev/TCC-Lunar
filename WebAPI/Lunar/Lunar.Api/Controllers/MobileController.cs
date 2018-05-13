@@ -15,17 +15,20 @@ namespace Lunar.Api.Controllers
     [RoutePrefix("api/v1/public/lunar")]
     public class MobileController : ApiController
     {
+        #region Private Attributes
         private static MongoCollection  Collection { get; set; }
         private static string           MongoAddress;
         private static string           MongoUser;
         private static string           MongoPassword;
         private static string           MongoDatabase;
         private static string           MongoCollection;
+        #endregion
 
         [HttpGet]
         [Route("")]
-        public HttpResponseMessage GetMobileRecordsById([FromUri] ApiQueryObject queryObject)
+        public HttpResponseMessage GetMobileRecords([FromUri] ApiQueryObject queryObject)
         {
+            #region Validations
             // Sanity check
             if (queryObject == null)
             {
@@ -43,6 +46,7 @@ namespace Lunar.Api.Controllers
             {
                 return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "Failed connection with Database");
             }
+            #endregion
 
             List<string> results = new List<string>();
             try
@@ -53,7 +57,7 @@ namespace Lunar.Api.Controllers
                 IMongoQuery query = BuildQuery(queryObject, out success);
 
                 if (!success || query == null)
-                    throw new Exception();
+                    throw new Exception("Problem to create the query!");
 
                 MongoCursor<MobileRecordObject> cursor = Collection.FindAs<MobileRecordObject>(query).SetLimit(queryObject.Limit);
 
