@@ -3,6 +3,7 @@ using Amazon.SQS.Model;
 using Lunar.SharedLibrary.Models;
 using Lunar.SharedLibrary.Utils;
 using MongoDB.Driver;
+using MongoDB.Driver.Builders;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -136,7 +137,22 @@ namespace Lunar.Recorder
 
         private static void SendObjectToMongoDb(List<MobileRecordObject> objs)
         {
-            Collection.InsertBatch(objs);
+            foreach(MobileRecordObject mro in objs)
+            {
+                // Before inserting, we need to check if obj was already inserted and update it if this is the case
+                IMongoQuery        query          = Query.And(Query.EQ("Latitude", mro.Latitude), Query.EQ("Longitude", mro.Longitude), Query.GTE("AcquireDate", mro.AcquireDate.AddMinutes(-1)), Query.LTE("AcquireDate", mro.AcquireDate.AddMinutes(1)));
+                MobileRecordObject mroOnMongo     = Collection.FindOneAs<MobileRecordObject>(query);
+
+                if (mroOnMongo != null)
+                {
+                    mro._id = mroOnMongo._id;
+                    Collection.Save(mro);
+                }
+                else
+                {
+                    Collection.Insert(mro);
+                }
+            }
         }
 
 
