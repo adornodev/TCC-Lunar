@@ -8,6 +8,6 @@ namespace Lunar.SharedLibrary.Utils
 {
     public static class Constants
     {
-        public const int LIMIT_TILT_PHONE = 30;
+        public const int LIMIT_TILT_PHONE = 40;
     }
 }
