@@ -19,16 +19,17 @@ namespace Lunar.Worker
     public class Worker
     {
         private static int                  CaptureInterval;
-        private static bool                 ShouldUseMachineLearning;
+        private static bool                 ShouldUseMachineLearningAlgorithm;
 
         private static string               AWSAccessKey;
         private static string               AWSSecretKey;
         private static string               ToBeProcessedQueueName;
         private static string               ProcessedQueueName;
-        private static string               ToBeClassifiedQueueName;
+        private static string               ToBeTestedQueueName;
+    
         private static SQSUtils             ToBeProcessedQueue;
         private static SQSUtils             ProcessedQueue;
-        private static SQSUtils             ToBeClassifiedQueue;
+        private static SQSUtils             ToBeTestedQueue;
 
         private static string               GoogleReverseGeocodingKey;
         private static string               GoogleReverseGeocodingUrlTemplate = "https://maps.googleapis.com/maps/api/geocode/json?latlng={0},{1}&key={2}&language=pt-BR";
@@ -68,22 +69,28 @@ namespace Lunar.Worker
                 else
                 {
                     int countProcessedMessages = 0;
+
+                    // Iterate over messages
                     foreach (Message message in messages)
                     {
-                        // Go to process messages
+                        // Process message
                         MobileRecordObject obj = ProcessMessage(message);
                    
                         if (obj != null)
                         {
                             countProcessedMessages++;
 
-                            // Send to ProcessedQueue
-                            SendToProcessedQueue(obj);
 
-
-                            if (ShouldUseMachineLearning)
-                                // Send to ToBeClassifiedQueue
-                                Send2ToBeClassifiedQueue(obj);
+                            if (ShouldUseMachineLearningAlgorithm)
+                            {
+                                // Send to LUNAR_ToBeTested Queue
+                                Send2ToBeTestedQueue(obj);
+                            }
+                            else
+                            {
+                                // Send to LUNAR_Processed Queue
+                                SendToProcessedQueue(obj);
+                            }
                                 
                             // Trace Message
                             if (countProcessedMessages % 10 == 0)
@@ -101,16 +108,16 @@ namespace Lunar.Worker
             }   
         }
 
-        private static void Send2ToBeClassifiedQueue(MobileRecordObject obj)
+        private static void Send2ToBeTestedQueue(MobileRecordObject obj)
         {
             string errorMessage = String.Empty;
 
             string jsonstr = obj.AsJSONString();
 
             // Add obj to queue
-            if (!ToBeClassifiedQueue.EnqueueMessage(jsonstr, out errorMessage))
+            if (!ToBeTestedQueue.EnqueueMessage(jsonstr, out errorMessage))
             {
-                Console.WriteLine(">> Error to enqueue message on ToBeClassified Queue. Error Message:{0}", errorMessage);
+                Console.WriteLine(">> Error to enqueue message on ToBeTestedQueue Queue. Error Message:{0}", errorMessage);
             }
         }
 
@@ -139,19 +146,19 @@ namespace Lunar.Worker
                 // SQS                                        
                 ToBeProcessedQueueName      = Utils.LoadConfigurationSetting("ToBeProcessedQueueName", "");
                 ProcessedQueueName          = Utils.LoadConfigurationSetting("ProcessedQueueName", "");
-                ToBeClassifiedQueueName     = Utils.LoadConfigurationSetting("ToBeClassifiedQueueName", "");
+                ToBeTestedQueueName         = Utils.LoadConfigurationSetting("ToBeTestedQueueName", "");
 
                 // Initialize SQS objects  
                 ToBeProcessedQueue          = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeProcessedQueueName);
-                ToBeClassifiedQueue         = new SQSUtils(AWSAccessKey,AWSSecretKey, ToBeClassifiedQueueName);
+                ToBeTestedQueue             = new SQSUtils(AWSAccessKey, AWSSecretKey, ToBeTestedQueueName);
                 ProcessedQueue              = new SQSUtils(AWSAccessKey, AWSSecretKey, ProcessedQueueName);
 
                 // Reverse Geocoding Key
                 GoogleReverseGeocodingKey   = Utils.LoadConfigurationSetting("ReverseGeocodingApiKey", "");
 
                 // Configuration Fields
-                CaptureInterval             = Int32.Parse(Utils.LoadConfigurationSetting("CaptureInterval", "30"));
-                ShouldUseMachineLearning    = Boolean.Parse(Utils.LoadConfigurationSetting("ShouldUseMachineLearning", "true"));
+                CaptureInterval                      = Int32.Parse(Utils.LoadConfigurationSetting("CaptureInterval", "30"));
+                ShouldUseMachineLearningAlgorithm    = Boolean.Parse(Utils.LoadConfigurationSetting("ShouldUseMachineLearningAlgorithm", "true"));
 
             }
             catch (Exception ex)
@@ -167,20 +174,28 @@ namespace Lunar.Worker
         {
             bool result = true;
 
-            string tobeprocessederrormessage = String.Empty;
-            string processederrormessage     = String.Empty;
+            string errorMessage = String.Empty;
 
             try
             {
-                // Is there ToBeProcessed Queue?
-                if (!ToBeProcessedQueue.OpenQueue(10, out tobeprocessederrormessage))
+                // Try to open the LUNAR_ToBeProcessed Queue
+                if (!ToBeProcessedQueue.OpenQueue(10, out errorMessage))
                     result = false;
 
-                // Is there Processed Queue?
-                if (!ProcessedQueue.OpenQueue(1, out processederrormessage))
+                // Try to open the LUNAR_Processed Queue
+                if (!ProcessedQueue.OpenQueue(1, out errorMessage))
                     result = false;
+
+                // Try to open the LUNAR_ToBeTested Queue
+                if (!ProcessedQueue.OpenQueue(1, out errorMessage))
+                    result = false;
+
             }
-            catch (Exception ex) { result = false; Console.WriteLine(">> Error Message: {0} ... {1}\t {2}", tobeprocessederrormessage, processederrormessage, ex.Message); }
+            catch (Exception ex)
+            {
+                result = false;
+                Console.WriteLine(">> Error Messages: {0}\t{1}", errorMessage, ex.Message);
+            }
 
             return result;
         }
@@ -199,9 +214,11 @@ namespace Lunar.Worker
                 // Is it a valid object?
                 if (ValidMobileObject(mobileObj))
                 {
-                    //if (mobileObj.Output != 0)
+                    if (mobileObj.Output != 0)
+                    {
                         // Extract Address from Google Reverse Geocoding API
                         ExtractAddressFromGPSCoordinates(ref mobileObj);
+                    }
                 }
 
                 return mobileObj;
